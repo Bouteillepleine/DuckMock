@@ -483,13 +483,19 @@ class MainActivity : AppCompatActivity() {
             )
         }
         val parts = ArrayList<String>()
-        if (state.getBoolean(Bridge.STATE_HIDE_LOCATION_FLAG)) parts.add("mock flag")
-        if (state.getBoolean(Bridge.STATE_HIDE_APP_OPS)) parts.add("app-ops")
-        if (state.getBoolean(Bridge.STATE_HIDE_SETTINGS_KEY)) parts.add("settings key")
+        if (state.getBoolean(Bridge.STATE_HIDE_LOCATION_FLAG) &&
+            state.getInt(Bridge.STATE_LOCATION_HOOKS) > 0
+        ) parts.add("mock flag")
+        if (state.getBoolean(Bridge.STATE_HIDE_APP_OPS) &&
+            state.getInt(Bridge.STATE_APPOPS_HOOKS) > 0
+        ) parts.add("app-ops")
+        if (state.getBoolean(Bridge.STATE_HIDE_SETTINGS_KEY) &&
+            state.getInt(Bridge.STATE_SETTINGS_HOOKS) > 0
+        ) parts.add("settings key")
         if (parts.isEmpty()) {
             return banner(
-                "Nothing enabled",
-                "Every switch on the Hiding tab is off.",
+                "Nothing armed",
+                "Every switch is off, or no hook could be installed.",
                 cTertiaryCont,
                 cOnTertiaryCont,
             )
