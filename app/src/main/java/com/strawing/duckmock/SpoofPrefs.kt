@@ -59,7 +59,21 @@ object SpoofPrefs {
             .apply()
     }
 
-    fun running(context: Context): Boolean = prefs(context).getBoolean(RUNNING, false)
+    fun running(context: Context): Boolean {
+        if (!prefs(context).getBoolean(RUNNING, false)) return false
+        if (serviceAlive(context)) return true
+        setRunning(context, false)
+        return false
+    }
+
+    private fun serviceAlive(context: Context): Boolean {
+        val am = context.applicationContext
+            .getSystemService(android.app.ActivityManager::class.java) ?: return false
+        val name = SpoofService::class.java.name
+        return runCatching {
+            am.getRunningServices(Int.MAX_VALUE).any { it.service.className == name }
+        }.getOrDefault(false)
+    }
 
     fun setRunning(context: Context, value: Boolean) {
         prefs(context).edit().putBoolean(RUNNING, value).apply()

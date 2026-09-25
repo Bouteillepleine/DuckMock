@@ -65,11 +65,13 @@ class SpoofService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_RETARGET -> {
-                if (running) {
-                    runCatching {
-                        getSystemService(NotificationManager::class.java)
-                            ?.notify(NOTIFICATION_ID, notification())
-                    }
+                if (!running) {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
+                runCatching {
+                    getSystemService(NotificationManager::class.java)
+                        ?.notify(NOTIFICATION_ID, notification())
                 }
                 return START_STICKY
             }

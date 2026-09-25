@@ -6,8 +6,8 @@ plugins {
 
 val appPackageName by extra("com.strawing.duckmock")
 val moduleId by extra("duckmock")
-val moduleVersionName by extra("1.0.1")
-val moduleVersionCode by extra(2)
+val moduleVersionName by extra("1.0.2")
+val moduleVersionCode by extra(3)
 
 tasks.register("clean", Delete::class) {
     delete(rootProject.layout.buildDirectory)
