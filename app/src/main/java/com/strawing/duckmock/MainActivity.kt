@@ -1069,16 +1069,33 @@ class MainActivity : AppCompatActivity() {
         card("Your spoofer") {
             addView(
                 text(
-                    "The app that sets the fake position. It always reads the truth, and it is the app that can be granted the op without the picker.",
+                    "The app that sets the fake position. It always reads the truth, and it is the one that can be granted the op without the picker.",
                     13f,
                     cOnSurfaceVar,
                 )
             )
-            addView(packageList(config.spoofers, "No spoofer chosen"))
+            if (config.spoofers.isEmpty()) {
+                addView(emptyHint("None chosen — DuckMock can spoof on its own from the Position tab."))
+            } else {
+                for (pkg in config.spoofers) {
+                    addView(appRow(pkg) {
+                        config.spoofers.remove(pkg)
+                        if (config.spoofers.isEmpty()) config.grantMockOp = false
+                        persist()
+                        render()
+                    })
+                }
+            }
             addView(
                 MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                    text = "Choose"
-                    setOnClickListener { openPicker(AppPickerActivity.MODE_SPOOFERS, config.spoofers) }
+                    text = if (config.spoofers.isEmpty()) "Choose" else "Change"
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply { topMargin = dp(8) }
+                    setOnClickListener {
+                        openPicker(AppPickerActivity.MODE_SPOOFERS, config.spoofers)
+                    }
                 }
             )
         }
@@ -1091,27 +1108,84 @@ class MainActivity : AppCompatActivity() {
                     cOnSurfaceVar,
                 )
             )
-            addView(packageList(config.exempt, "Nothing added"))
+            if (config.exempt.isEmpty()) {
+                addView(emptyHint("Nothing added."))
+            } else {
+                for (pkg in config.exempt) {
+                    addView(appRow(pkg) {
+                        config.exempt.remove(pkg)
+                        persist()
+                        render()
+                    })
+                }
+            }
             addView(
                 MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                    text = "Choose"
-                    setOnClickListener { openPicker(AppPickerActivity.MODE_EXEMPT, config.exempt) }
+                    text = if (config.exempt.isEmpty()) "Choose" else "Change"
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply { topMargin = dp(8) }
+                    setOnClickListener {
+                        openPicker(AppPickerActivity.MODE_EXEMPT, config.exempt)
+                    }
                 }
             )
         }
 
-        card("Always spared") {
+        card("Never lied to") {
             addView(
                 text(
-                    "These are never lied to, so you keep control of the phone and of this app.",
+                    "${Config.SPARE_PACKAGES.size} system components, so you keep control of the phone and of this app.",
                     13f,
                     cOnSurfaceVar,
                 )
             )
-            for (pkg in Config.SPARE_PACKAGES.sorted()) {
-                addView(text(pkg, 13f, cOnSurface))
-            }
+            addView(
+                text(
+                    Config.SPARE_PACKAGES.sorted().joinToString(" · ") { labelOf(it) },
+                    12f,
+                    cOnSurface,
+                ).apply { setPadding(0, dp(8), 0, 0) }
+            )
         }
+    }
+
+    private fun emptyHint(message: String): View =
+        text(message, 13f, cOnSurfaceVar, Typeface.ITALIC).apply { setPadding(0, dp(10), 0, 0) }
+
+    private fun labelOf(pkg: String): String {
+        if (pkg == "android") return "Android system"
+        val pm = packageManager
+        return runCatching {
+            pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
+        }.getOrNull()?.takeIf { it.isNotBlank() && it != pkg } ?: pkg.substringAfterLast('.')
+    }
+
+    private fun appRow(pkg: String, onRemove: () -> Unit): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(10), 0, dp(10))
+        }
+        row.addView(ImageView(this).apply {
+            setImageDrawable(runCatching { packageManager.getApplicationIcon(pkg) }.getOrNull())
+            layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(14) }
+        })
+        val texts = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        texts.addView(text(labelOf(pkg), 15f, cOnSurface))
+        texts.addView(text(pkg, 11f, cOnSurfaceVar))
+        row.addView(texts)
+        row.addView(
+            MaterialButton(this, null, MR.attr.materialButtonOutlinedStyle).apply {
+                text = "Remove"
+                setOnClickListener { onRemove() }
+            }
+        )
+        return row
     }
 
     private fun openPicker(mode: String, selected: Set<String>) {
@@ -1120,19 +1194,6 @@ class MainActivity : AppCompatActivity() {
             putStringArrayListExtra(AppPickerActivity.EXTRA_SELECTED, ArrayList(selected))
         }
         picker.launch(intent)
-    }
-
-    private fun packageList(packages: Set<String>, empty: String): View {
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(6), 0, dp(6))
-        }
-        if (packages.isEmpty()) {
-            box.addView(text(empty, 13f, cOnSurfaceVar, Typeface.ITALIC))
-            return box
-        }
-        for (pkg in packages) box.addView(text(pkg, 14f, cOnSurface))
-        return box
     }
 
     // ------------------------------------------------------------------- log
