@@ -121,10 +121,25 @@ jobs:
           [ "$bad" = 0 ] || exit 1
 
       - name: Stage artifacts
+        # Without the signing secrets AGP names the output app-release-unsigned.apk, so the
+        # name is discovered rather than assumed, and the log says which one was staged.
         run: |
           set -euo pipefail
-          cp app/build/outputs/apk/release/app-release.apk ./DuckMock-manager.apk
-          cp probe/build/outputs/apk/debug/probe-debug.apk ./DuckMock-probe.apk
+          APK=""
+          for c in app/build/outputs/apk/release/app-release.apk                    app/build/outputs/apk/release/app-release-unsigned.apk; do
+            [ -f "$c" ] && { APK="$c"; break; }
+          done
+          [ -n "$APK" ] || { echo "no manager APK was built"; ls -R app/build/outputs/apk; exit 1; }
+          case "$APK" in
+            *-unsigned.apk) echo "::warning::Staging an UNSIGNED manager APK; it cannot be installed." ;;
+            *) echo "manager APK is signed" ;;
+          esac
+          cp "$APK" ./DuckMock-manager.apk
+
+          PROBE=$(ls probe/build/outputs/apk/debug/*.apk 2>/dev/null | head -1)
+          [ -n "$PROBE" ] || { echo "no probe APK was built"; exit 1; }
+          cp "$PROBE" ./DuckMock-probe.apk
+
           cp zygote/build/outputs/magisk/release/*.zip ./
           ls -l ./*.apk ./*.zip
 
