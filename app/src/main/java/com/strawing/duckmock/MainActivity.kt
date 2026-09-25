@@ -814,38 +814,6 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        card("Cell towers") {
-            val reachable = snapshot?.phoneReachable == true
-            addView(
-                switchRow(
-                    "Withhold the cell list",
-                    if (reachable) {
-                        "Applies for the whole boot, not only while spoofing, and needs a reboot to change."
-                    } else {
-                        "Unavailable here."
-                    },
-                    config.hideCells && reachable,
-                    enabled = reachable,
-                ) { config.hideCells = it; persist(); render() }
-            )
-            if (!reachable) {
-                addView(
-                    text(
-                        "Zygisk only reaches system_server and ordinary apps. The telephony process runs under a privileged system uid, so no module can be loaded into it — measured on this device, not assumed.",
-                        12f,
-                        cOnSurfaceVar,
-                    )
-                )
-            }
-            addView(
-                text(
-                    "The network country is out of reach either way: any app reads it with no permission from a system property.",
-                    12f,
-                    cOnSurfaceVar,
-                )
-            )
-        }
-
         card("Satellites") {
             addView(
                 switchRow(

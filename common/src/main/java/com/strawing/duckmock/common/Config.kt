@@ -13,7 +13,6 @@ object Config {
     const val MAX_BOOT_ATTEMPTS = 3
 
     const val SYSTEM_SERVER_PACKAGE = "android"
-    const val PHONE_PACKAGE = "com.android.phone"
 
     const val FIRST_APP_UID = 10000
     const val PER_USER_RANGE = 100000

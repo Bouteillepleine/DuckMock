@@ -64,7 +64,7 @@ kotlin {
 }
 
 zygisk {
-    packages(ZygoteLoader.PACKAGE_SYSTEM_SERVER, "com.android.phone")
+    packages(ZygoteLoader.PACKAGE_SYSTEM_SERVER)
 
     id = moduleId
     name = "DuckMock"

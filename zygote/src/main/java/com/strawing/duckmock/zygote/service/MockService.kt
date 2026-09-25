@@ -88,7 +88,6 @@ class MockService(private val context: Context) : IMockService.Stub() {
             putString(Bridge.STATE_ENGINE, XHook.engineMode())
             putBoolean(Bridge.STATE_SYNTH_GNSS, c.synthesiseGnss)
             putBoolean(Bridge.STATE_HIDE_WIFI, c.hideWifi)
-            putBoolean(Bridge.STATE_HIDE_CELLS, c.hideCells)
             putString(Bridge.STATE_WIFI, "${WifiPart.note} · ${WifiPart.redacted} redacted")
             putString(Bridge.STATE_GNSS, "${GnssPart.resolution} · ${GnssPart.pushed} pushed · ${GnssPart.suppressHooks} raw gated")
             putBoolean(Bridge.STATE_PAUSED, c.paused)
@@ -133,7 +132,6 @@ class MockService(private val context: Context) : IMockService.Stub() {
         if (bundle.containsKey(Bridge.STATE_GRANT_MOCK_OP)) next.grantMockOp = bundle.getBoolean(Bridge.STATE_GRANT_MOCK_OP)
         if (bundle.containsKey(Bridge.STATE_SYNTH_GNSS)) next.synthesiseGnss = bundle.getBoolean(Bridge.STATE_SYNTH_GNSS)
         if (bundle.containsKey(Bridge.STATE_HIDE_WIFI)) next.hideWifi = bundle.getBoolean(Bridge.STATE_HIDE_WIFI)
-        if (bundle.containsKey(Bridge.STATE_HIDE_CELLS)) next.hideCells = bundle.getBoolean(Bridge.STATE_HIDE_CELLS)
         if (bundle.containsKey(Bridge.STATE_VERBOSE)) next.verboseLog = bundle.getBoolean(Bridge.STATE_VERBOSE)
         bundle.getStringArrayList(Bridge.STATE_SPOOFERS)?.let { next.spoofers = LinkedHashSet(it) }
         bundle.getStringArrayList(Bridge.STATE_EXEMPT)?.let { next.exempt = LinkedHashSet(it) }

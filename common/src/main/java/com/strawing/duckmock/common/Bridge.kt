@@ -26,7 +26,6 @@ object Bridge {
     const val STATE_SPOOF_LON = "spoofLon"
     const val STATE_GNSS = "gnss"
     const val STATE_HIDE_WIFI = "hideWifi"
-    const val STATE_HIDE_CELLS = "hideCells"
     const val STATE_WIFI = "wifi"
     const val STATE_VERBOSE = "verboseLog"
     const val STATE_SPOOFERS = "spoofers"
