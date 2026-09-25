@@ -60,6 +60,14 @@ object SystemServerPart {
             Logx.e("each one carrying its own inline hooker will fight over the same ART code")
         }
 
+        if (!BootGuard.shouldArm()) {
+            report(
+                "refused: ${BootGuard.attempts} arms in a row did not survive, " +
+                    "clear the kill switch in the manager to try again"
+            )
+            return
+        }
+
         val config = ModuleConfig.config
 
         InitLock.serialized {
@@ -100,9 +108,11 @@ object SystemServerPart {
             val summary = "armed: engine=${XHook.engineMode()} location=$location " +
                 "(${LocationPart.verdict()}) settings=$settings appops=$appOps " +
                 "service=${if (service != null) "up" else "missing"} bridge=$bridge " +
+                "arm=${BootGuard.attempts} " +
                 "provider=${SettingsPart.providerFound} neighbours=$neighbours"
             Logx.i(summary)
             report(summary)
+            BootGuard.markSurvivedLater()
         }
     }
 

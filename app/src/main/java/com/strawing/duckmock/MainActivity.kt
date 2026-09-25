@@ -399,11 +399,27 @@ class MainActivity : AppCompatActivity() {
                 )
                 addView(
                     text(
-                        "The module also disables itself after three boots that do not stay up.",
+                        "The module also stops itself after three arms in a row that do not stay up for two minutes. Turning this switch off clears that counter too.",
                         12f,
                         cOnSurfaceVar,
                     )
                 )
+                if (snapshot?.armReport?.contains("refused:") == true) {
+                    addView(
+                        MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
+                            text = "Let it arm again"
+                            setOnClickListener {
+                                Thread {
+                                    Root.resetSafetyCounter()
+                                    runOnUiThread {
+                                        toast("Cleared. It will arm on the next reboot.")
+                                        reload()
+                                    }
+                                }.apply { isDaemon = true }.start()
+                            }
+                        }
+                    )
+                }
             }
         } else {
             card("Root not granted to DuckMock") {
@@ -457,6 +473,14 @@ class MainActivity : AppCompatActivity() {
             )
         }
         if (state == null) {
+            if (snapshot?.armReport?.contains("refused:") == true) {
+                return banner(
+                    "Stopped itself",
+                    "Three arms in a row did not survive, so the module refused to install anything. Clear the kill switch below to let it try again.",
+                    cErrorCont,
+                    cOnErrorCont,
+                )
+            }
             val report = armed()
             val locationHooks = report?.get("location")?.toIntOrNull() ?: 0
             if (locationHooks > 0) {

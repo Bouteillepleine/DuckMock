@@ -118,8 +118,12 @@ object Root {
             exec("touch ${Config.DISABLE_FILE}", "chmod 0644 ${Config.DISABLE_FILE}")
             relabel(Config.DISABLE_FILE)
         } else {
-            exec("rm -f ${Config.DISABLE_FILE}")
+            exec("rm -f ${Config.DISABLE_FILE}", "rm -f /data/system/duckmock_arms")
         }
+    }
+
+    fun resetSafetyCounter() {
+        exec("rm -f /data/system/duckmock_arms")
     }
 
     fun writeConfig(config: MockConfig): Boolean {
