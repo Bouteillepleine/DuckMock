@@ -25,6 +25,7 @@ object Root {
         val mockLocationSetting: String?,
         val mockOpHolders: List<String>,
         val armReport: String? = null,
+        val phoneReachable: Boolean = false,
     )
 
     fun warm() {
@@ -39,7 +40,7 @@ object Root {
 
     fun snapshot(): Snapshot {
         if (!available()) {
-            return Snapshot(false, false, false, null, null, "unknown", null, emptyList(), null)
+            return Snapshot(false, false, false, null, null, "unknown", null, emptyList(), null, false)
         }
         val script = buildString {
             append("MD=${Config.MODULE_DIR}\n")
@@ -59,7 +60,7 @@ object Root {
         }
         val result = exec(script)
         if (!result.isSuccess && result.out.isEmpty()) {
-            return Snapshot(false, false, false, null, null, "unknown", null, emptyList(), null)
+            return Snapshot(false, false, false, null, null, "unknown", null, emptyList(), null, false)
         }
 
         var installed = false
@@ -70,6 +71,7 @@ object Root {
         val holders = ArrayList<String>()
         val configText = StringBuilder()
         val reportText = StringBuilder()
+        var phoneReachable = false
         var section = ""
 
         for (raw in result.out) {
@@ -110,6 +112,7 @@ object Root {
             mockLocationSetting = secure,
             mockOpHolders = holders,
             armReport = reportText.toString().trim().takeIf { it.isNotBlank() },
+            phoneReachable = phoneReachable,
         )
     }
 
