@@ -812,22 +812,6 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
-        card("How this works") {
-            addView(
-                text(
-                    "DuckMock registers itself as a location provider and pushes your chosen position once a second. It grants itself the mock-location permission through its own app-ops gate, so the developer-options picker stays empty, and it strips the mock marker from the positions it produces — so apps see an ordinary GPS fix.",
-                    13f,
-                    cOnSurfaceVar,
-                )
-            )
-            addView(
-                text(
-                    "With the satellite view switched on above, a fix no longer arrives bare. The sky is plausible but not computed from ephemeris, so it holds up against a count, not against the real almanac.",
-                    12f,
-                    cOnSurfaceVar,
-                )
-            )
-        }
     }
 
     private fun startSpoof() {
