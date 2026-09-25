@@ -1,7 +1,9 @@
 package com.strawing.duckmock.zygote
 
 import android.os.SystemClock
+import com.strawing.duckmock.common.Bridge
 import com.strawing.duckmock.common.Config
+import com.strawing.duckmock.zygote.hook.BridgeRegistry
 import com.strawing.duckmock.zygote.hook.InitLock
 import com.strawing.duckmock.zygote.hook.XHook
 import com.strawing.duckmock.zygote.service.MockService
@@ -80,6 +82,15 @@ object SystemServerPart {
                     .getOrDefault(0)
             } else 0
 
+            val bridge = if (settings > 0) {
+                BridgeRegistry.publish(Bridge.METHOD, SettingsPart.bridgeHandler)
+                "own"
+            } else if (BridgeRegistry.registerWithOwner(Bridge.METHOD, SettingsPart.bridgeHandler)) {
+                "lent"
+            } else {
+                "none"
+            }
+
             val appOps = if (config.hideAppOps || config.grantMockOp) {
                 runCatching { AppOpsPart.arm() }
                     .onFailure { Logx.e("app-ops gate failed to arm", it) }
@@ -88,7 +99,7 @@ object SystemServerPart {
 
             val summary = "armed: engine=${XHook.engineMode()} location=$location " +
                 "(${LocationPart.verdict()}) settings=$settings appops=$appOps " +
-                "service=${if (service != null) "up" else "missing"} " +
+                "service=${if (service != null) "up" else "missing"} bridge=$bridge " +
                 "provider=${SettingsPart.providerFound} neighbours=$neighbours"
             Logx.i(summary)
             report(summary)

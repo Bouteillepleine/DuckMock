@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Bundle
 import com.strawing.duckmock.common.Bridge
 import com.strawing.duckmock.common.Config
+import com.strawing.duckmock.zygote.hook.BridgeRegistry
 import com.strawing.duckmock.zygote.hook.Frame
 import com.strawing.duckmock.zygote.hook.XHook
 import com.strawing.duckmock.zygote.util.CursorSpoof
@@ -96,18 +97,36 @@ object SettingsPart {
         return false
     }
 
+    fun bridgeBundle(uid: Int?): Bundle? {
+        val svc = SystemServerPart.service ?: return null
+        if (uid == null || svc.callerAppId < 0) return null
+        if (uid % Config.PER_USER_RANGE != svc.callerAppId) return null
+        return Bundle().apply { putBinder(Bridge.KEY_BINDER, svc) }
+    }
+
+    val bridgeHandler = java.lang.reflect.InvocationHandler { _, _, args ->
+        bridgeBundle(args?.getOrNull(0) as? Int)
+    }
+
     private fun onCall(f: Frame) {
         if (!callSeen) {
             callSeen = true
             Logx.i("settings call hook live")
         }
-        val svc = SystemServerPart.service
         val caller = Targets.callingUid()
-        if (svc != null && caller != null && svc.callerAppId >= 0 &&
-            caller % Config.PER_USER_RANGE == svc.callerAppId && matchesBridge(f.args)
-        ) {
-            f.result = Bundle().apply { putBinder(Bridge.KEY_BINDER, svc) }
-            return
+        if (caller != null && matchesBridge(f.args)) {
+            val answer = bridgeBundle(caller)
+            if (answer != null) {
+                f.result = answer
+                return
+            }
+        }
+        if (caller != null) {
+            val foreign = BridgeRegistry.serve(f.args, caller)
+            if (foreign != null) {
+                f.result = foreign
+                return
+            }
         }
         f.proceed()
         try {
