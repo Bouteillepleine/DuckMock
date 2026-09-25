@@ -7,3 +7,4 @@ key.properties
 .cxx/
 .DS_Store
 !ci/ci-keystore.jks
+key.properties.*
