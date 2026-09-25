@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "DuckMock"
 
-include(":common", ":zygote", ":app")
+include(":common", ":zygote", ":app", ":probe")
