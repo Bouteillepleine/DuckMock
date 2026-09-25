@@ -543,6 +543,34 @@ class MainActivity : AppCompatActivity() {
     // -------------------------------------------------------------- position
 
     private var spoof = SpoofTarget()
+    private var geoQuery = ""
+    private var geoResults: List<android.location.Address> = emptyList()
+    private var geoNote: String? = null
+
+    private fun searchAddress() {
+        geoNote = "Searching…"
+        geoResults = emptyList()
+        render()
+        val query = geoQuery
+        Geo.search(this, query) { hits, error ->
+            runOnUiThread {
+                geoResults = hits
+                geoNote = error
+                render()
+            }
+        }
+    }
+
+    private fun describeHere() {
+        geoNote = "Looking up…"
+        render()
+        Geo.describe(this, spoof.latitude, spoof.longitude) { line ->
+            runOnUiThread {
+                geoNote = line?.let { "That is $it" } ?: "No address for those coordinates."
+                render()
+            }
+        }
+    }
 
     private fun renderSpoof() {
         val running = SpoofPrefs.running(this)
@@ -563,6 +591,71 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         )
+
+        card("Find an address") {
+            addView(valueField("Address or place", geoQuery) { geoQuery = it })
+            val row = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, dp(8), 0, 0)
+            }
+            row.addView(
+                MaterialButton(this@MainActivity).apply {
+                    text = "Search"
+                    setOnClickListener { searchAddress() }
+                }
+            )
+            row.addView(
+                MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
+                    text = "What is here?"
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply { marginStart = dp(8) }
+                    setOnClickListener { describeHere() }
+                }
+            )
+            addView(row)
+            geoNote?.let { addView(text(it, 13f, cOnSurfaceVar)) }
+            for (hit in geoResults) {
+                val line = Geo.label(hit)
+                addView(
+                    TextView(this@MainActivity).apply {
+                        text = "→  $line"
+                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                        setTextColor(cPrimary)
+                        setPadding(0, dp(8), 0, dp(8))
+                        setOnClickListener {
+                            spoof = spoof.copy(
+                                latitude = hit.latitude,
+                                longitude = hit.longitude,
+                                label = if (spoof.label.isBlank()) line.take(40) else spoof.label,
+                            )
+                            SpoofPrefs.setTarget(this@MainActivity, spoof)
+                            geoResults = emptyList()
+                            geoNote = "Moved to $line"
+                            render()
+                        }
+                    }
+                )
+            }
+            if (!Geo.available()) {
+                addView(
+                    text(
+                        "No geocoder on this device, so only coordinates will work.",
+                        12f,
+                        cOnSurfaceVar,
+                    )
+                )
+            } else {
+                addView(
+                    text(
+                        "The lookup goes through Android's own geocoder, which resolves it in the system's network-location service — the same one any maps app uses.",
+                        12f,
+                        cOnSurfaceVar,
+                    )
+                )
+            }
+        }
 
         card("Where to be") {
             addView(valueField("Latitude", spoof.latitude.toString()) {
