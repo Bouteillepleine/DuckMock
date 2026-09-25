@@ -35,6 +35,18 @@ object ServiceClient {
         runCatching { get(context)?.clearRecords() }
     }
 
+    fun setSpoofing(context: Context, on: Boolean, lat: Double, lon: Double): Boolean {
+        val service = get(context) ?: return false
+        return runCatching {
+            service.pushConfig(Bundle().apply {
+                putBoolean(Bridge.STATE_SPOOFING, on)
+                putDouble(Bridge.STATE_SPOOF_LAT, lat)
+                putDouble(Bridge.STATE_SPOOF_LON, lon)
+            })
+            true
+        }.getOrDefault(false)
+    }
+
     fun push(context: Context, config: MockConfig): Boolean {
         val service = get(context) ?: return false
         return runCatching {
@@ -46,6 +58,7 @@ object ServiceClient {
                 putBoolean(Bridge.STATE_COVER_QUERY, config.coverQueryPath)
                 putBoolean(Bridge.STATE_HIDE_APP_OPS, config.hideAppOps)
                 putBoolean(Bridge.STATE_GRANT_MOCK_OP, config.grantMockOp)
+                putBoolean(Bridge.STATE_SYNTH_GNSS, config.synthesiseGnss)
                 putBoolean(Bridge.STATE_VERBOSE, config.verboseLog)
                 putStringArrayList(Bridge.STATE_SPOOFERS, ArrayList(config.spoofers))
                 putStringArrayList(Bridge.STATE_EXEMPT, ArrayList(config.exempt))

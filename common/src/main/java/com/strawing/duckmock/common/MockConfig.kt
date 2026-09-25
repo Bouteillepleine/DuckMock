@@ -11,6 +11,7 @@ data class MockConfig(
     var coverQueryPath: Boolean = true,
     var hideAppOps: Boolean = true,
     var grantMockOp: Boolean = false,
+    var synthesiseGnss: Boolean = false,
     var verboseLog: Boolean = false,
     var spoofers: MutableSet<String> = LinkedHashSet(),
     var exempt: MutableSet<String> = LinkedHashSet(),
@@ -39,6 +40,7 @@ data class MockConfig(
         o.put(KEY_COVER_QUERY, coverQueryPath)
         o.put(KEY_HIDE_APP_OPS, hideAppOps)
         o.put(KEY_GRANT_MOCK_OP, grantMockOp)
+        o.put(KEY_SYNTH_GNSS, synthesiseGnss)
         o.put(KEY_VERBOSE, verboseLog)
         o.put(KEY_SPOOFERS, JSONArray(spoofers.toList()))
         o.put(KEY_EXEMPT, JSONArray(exempt.toList()))
@@ -56,6 +58,7 @@ data class MockConfig(
         private const val KEY_COVER_QUERY = "coverQueryPath"
         private const val KEY_HIDE_APP_OPS = "hideAppOps"
         private const val KEY_GRANT_MOCK_OP = "grantMockOp"
+        private const val KEY_SYNTH_GNSS = "synthesiseGnss"
         private const val KEY_VERBOSE = "verboseLog"
         private const val KEY_SPOOFERS = "spoofers"
         private const val KEY_EXEMPT = "exempt"
@@ -82,6 +85,7 @@ data class MockConfig(
                     coverQueryPath = o.optBoolean(KEY_COVER_QUERY, true),
                     hideAppOps = o.optBoolean(KEY_HIDE_APP_OPS, true),
                     grantMockOp = o.optBoolean(KEY_GRANT_MOCK_OP, false),
+                    synthesiseGnss = o.optBoolean(KEY_SYNTH_GNSS, false),
                     verboseLog = o.optBoolean(KEY_VERBOSE, false),
                     spoofers = strings(o, KEY_SPOOFERS),
                     exempt = strings(o, KEY_EXEMPT),

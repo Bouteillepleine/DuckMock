@@ -669,6 +669,24 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        card("Satellites") {
+            addView(
+                switchRow(
+                    "Synthesise a sky",
+                    "While spoofing, publish a plausible satellite view so a fix does not arrive with nothing behind it.",
+                    config.synthesiseGnss,
+                ) { config.synthesiseGnss = it; persist(); render() }
+            )
+            live?.getString(Bridge.STATE_GNSS)?.let { addView(infoRow("Engine", it)) }
+            addView(
+                text(
+                    "The constellation is plausible, not astronomically real: counts, signal strengths and elevations hold up, but it is not computed from ephemeris. A detector comparing against the real almanac would still tell.",
+                    12f,
+                    cOnSurfaceVar,
+                )
+            )
+        }
+
         card("How this works") {
             addView(
                 text(

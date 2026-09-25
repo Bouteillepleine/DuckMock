@@ -77,6 +77,8 @@ class SpoofService : Service() {
         }
         running = true
         SpoofPrefs.setRunning(this, true)
+        val target = SpoofPrefs.target(this)
+        runCatching { ServiceClient.setSpoofing(this, true, target.latitude, target.longitude) }
         ticker = Thread {
             while (running) {
                 push()
@@ -90,6 +92,7 @@ class SpoofService : Service() {
         ticker = null
         releaseProviders()
         SpoofPrefs.setRunning(this, false)
+        runCatching { ServiceClient.setSpoofing(this, false, 0.0, 0.0) }
         SpoofConfig.release(this)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()

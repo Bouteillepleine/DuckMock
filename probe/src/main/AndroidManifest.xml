@@ -24,6 +24,13 @@
             </intent-filter>
         </receiver>
         <receiver
+            android:name=".GnssWatch"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.strawing.duckprobe.GNSS" />
+            </intent-filter>
+        </receiver>
+        <receiver
             android:name=".MockAttempt"
             android:exported="true">
             <intent-filter>

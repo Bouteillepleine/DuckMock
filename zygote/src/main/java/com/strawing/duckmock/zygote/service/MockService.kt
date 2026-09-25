@@ -8,6 +8,7 @@ import com.strawing.duckmock.IMockService
 import com.strawing.duckmock.common.Bridge
 import com.strawing.duckmock.common.Config
 import com.strawing.duckmock.zygote.AppOpsPart
+import com.strawing.duckmock.zygote.GnssPart
 import com.strawing.duckmock.zygote.LocationPart
 import com.strawing.duckmock.zygote.SettingsPart
 import com.strawing.duckmock.zygote.hook.XHook
@@ -84,6 +85,8 @@ class MockService(private val context: Context) : IMockService.Stub() {
             putLong(Bridge.STATE_INSTALLED_AT, installedAtRealtimeMs)
             putInt(Bridge.STATE_OP_CODE, AppOpsPart.opCode)
             putString(Bridge.STATE_ENGINE, XHook.engineMode())
+            putBoolean(Bridge.STATE_SYNTH_GNSS, c.synthesiseGnss)
+            putString(Bridge.STATE_GNSS, "${GnssPart.resolution} · ${GnssPart.pushed} pushed")
             putBoolean(Bridge.STATE_PAUSED, c.paused)
             putBoolean(Bridge.STATE_HIDE_LOCATION_FLAG, c.hideLocationFlag)
             putBoolean(Bridge.STATE_NORMALIZE_PROVIDER, c.normalizeProvider)
@@ -124,11 +127,19 @@ class MockService(private val context: Context) : IMockService.Stub() {
         if (bundle.containsKey(Bridge.STATE_COVER_QUERY)) next.coverQueryPath = bundle.getBoolean(Bridge.STATE_COVER_QUERY)
         if (bundle.containsKey(Bridge.STATE_HIDE_APP_OPS)) next.hideAppOps = bundle.getBoolean(Bridge.STATE_HIDE_APP_OPS)
         if (bundle.containsKey(Bridge.STATE_GRANT_MOCK_OP)) next.grantMockOp = bundle.getBoolean(Bridge.STATE_GRANT_MOCK_OP)
+        if (bundle.containsKey(Bridge.STATE_SYNTH_GNSS)) next.synthesiseGnss = bundle.getBoolean(Bridge.STATE_SYNTH_GNSS)
         if (bundle.containsKey(Bridge.STATE_VERBOSE)) next.verboseLog = bundle.getBoolean(Bridge.STATE_VERBOSE)
         bundle.getStringArrayList(Bridge.STATE_SPOOFERS)?.let { next.spoofers = LinkedHashSet(it) }
         bundle.getStringArrayList(Bridge.STATE_EXEMPT)?.let { next.exempt = LinkedHashSet(it) }
         ModuleConfig.config = next
         Logx.verbose = next.verboseLog
+        if (bundle.containsKey(Bridge.STATE_SPOOFING)) {
+            GnssPart.setSpoofing(
+                bundle.getBoolean(Bridge.STATE_SPOOFING),
+                bundle.getDouble(Bridge.STATE_SPOOF_LAT),
+                bundle.getDouble(Bridge.STATE_SPOOF_LON),
+            )
+        }
         Targets.invalidate()
         Logx.i(
             "config pushed: paused=${next.paused} location=${next.hideLocationFlag} " +
