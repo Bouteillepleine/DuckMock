@@ -105,6 +105,10 @@ object SystemServerPart {
                     .getOrDefault(0)
             } else 0
 
+            val rawGnss = runCatching { GnssPart.armSuppression() }
+                .onFailure { Logx.e("raw gnss suppression failed to arm", it) }
+                .getOrDefault(0)
+
             val wifi = runCatching { WifiPart.arm() }
                 .onFailure { Logx.e("wifi gate failed to arm", it) }
                 .getOrDefault(0)
@@ -117,7 +121,7 @@ object SystemServerPart {
 
             val summary = "armed: engine=${XHook.engineMode()} location=$location " +
                 "(${LocationPart.verdict()}) settings=$settings appops=$appOps grant=$grant " +
-                "wifi=$wifi[${WifiPart.note}] wifiSeen=${WifiPart.candidates} " +
+                "wifi=$wifi[${WifiPart.note}] rawgnss=$rawGnss " +
                 "service=${if (service != null) "up" else "missing"} bridge=$bridge " +
                 "arm=${BootGuard.attempts} " +
                 "provider=${SettingsPart.providerFound} neighbours=$neighbours"

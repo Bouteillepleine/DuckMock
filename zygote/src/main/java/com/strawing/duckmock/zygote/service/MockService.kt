@@ -89,7 +89,7 @@ class MockService(private val context: Context) : IMockService.Stub() {
             putBoolean(Bridge.STATE_SYNTH_GNSS, c.synthesiseGnss)
             putBoolean(Bridge.STATE_HIDE_WIFI, c.hideWifi)
             putString(Bridge.STATE_WIFI, "${WifiPart.note} · ${WifiPart.redacted} redacted")
-            putString(Bridge.STATE_GNSS, "${GnssPart.resolution} · ${GnssPart.pushed} pushed")
+            putString(Bridge.STATE_GNSS, "${GnssPart.resolution} · ${GnssPart.pushed} pushed · ${GnssPart.suppressHooks} raw gated")
             putBoolean(Bridge.STATE_PAUSED, c.paused)
             putBoolean(Bridge.STATE_HIDE_LOCATION_FLAG, c.hideLocationFlag)
             putBoolean(Bridge.STATE_NORMALIZE_PROVIDER, c.normalizeProvider)

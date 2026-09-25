@@ -1,5 +1,8 @@
 package com.strawing.duckmock.zygote
 
+import com.strawing.duckmock.common.Config
+import com.strawing.duckmock.zygote.hook.Frame
+import com.strawing.duckmock.zygote.hook.XHook
 import com.strawing.duckmock.zygote.util.Logx
 import com.strawing.duckmock.zygote.util.ModuleConfig
 import java.lang.reflect.Method
@@ -77,6 +80,64 @@ object GnssPart {
             }
             Logx.i("synthetic gnss stopped after $pushed reports")
         }
+    }
+
+    private val RAW_METHODS = setOf(
+        "addGnssMeasurementsListener",
+        "addGnssNavigationMessageListener",
+        "addGnssAntennaInfoListener",
+        "addGnssBatchingCallback",
+        "registerGnssMeasurementsCallback",
+        "registerGnssNavigationMessageCallback",
+        "startGnssBatch",
+    )
+
+    @Volatile
+    var suppressHooks = 0
+        private set
+
+    @Volatile
+    var refused = 0
+        private set
+
+    fun armSuppression(): Int {
+        val service = runCatching {
+            Class.forName("android.os.ServiceManager")
+                .getDeclaredMethod("getService", String::class.java)
+                .apply { isAccessible = true }
+                .invoke(null, "location")
+        }.getOrNull() ?: return 0
+        var count = 0
+        val taken = ArrayList<String>()
+        for (m in XHook.methodsOf(service.javaClass)) {
+            if (m.name !in RAW_METHODS) continue
+            val returns = m.returnType
+            if (returns != Void.TYPE && returns != Boolean::class.javaPrimitiveType) continue
+            if (XHook.hook(m, ::onRawRequest)) {
+                count++
+                taken.add(m.name)
+            }
+        }
+        suppressHooks = count
+        Logx.i("raw gnss suppression armed: $count methods $taken")
+        return count
+    }
+
+    private fun onRawRequest(f: Frame) {
+        val config = ModuleConfig.config
+        if (!ModuleConfig.active() || !config.synthesiseGnss || !SpoofState.active) {
+            f.proceed()
+            return
+        }
+        val uid = Targets.callingUid()
+        if (uid == null || !Targets.lieTo(uid)) {
+            f.proceed()
+            return
+        }
+        if (f.returnType == Boolean::class.javaPrimitiveType) f.result = false
+        refused++
+        SystemServerPart.service?.note(uid, Config.RECORD_GNSS)
+        Logx.v { "refused raw gnss (${f.member.name}) to ${Targets.describe(uid)}" }
     }
 
     fun resolve(): Boolean {

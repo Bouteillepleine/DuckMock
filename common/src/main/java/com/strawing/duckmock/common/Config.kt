@@ -62,4 +62,5 @@ object Config {
     const val RECORD_APPOPS = "appops"
     const val RECORD_GRANT = "grant"
     const val RECORD_WIFI = "wifi"
+    const val RECORD_GNSS = "gnss"
 }

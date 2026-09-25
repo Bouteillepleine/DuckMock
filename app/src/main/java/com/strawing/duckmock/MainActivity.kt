@@ -817,14 +817,14 @@ class MainActivity : AppCompatActivity() {
             addView(
                 switchRow(
                     "Synthesise a sky",
-                    "While spoofing, publish a plausible satellite view so a fix does not arrive with nothing behind it.",
+                    "While spoofing, publish a plausible satellite view and withhold the raw measurements that would contradict it.",
                     config.synthesiseGnss,
                 ) { config.synthesiseGnss = it; persist(); render() }
             )
             live?.getString(Bridge.STATE_GNSS)?.let { addView(infoRow("Engine", it)) }
             addView(
                 text(
-                    "The constellation is plausible, not astronomically real: counts, signal strengths and elevations hold up, but it is not computed from ephemeris. A detector comparing against the real almanac would still tell.",
+                    "Plausible, not astronomical: counts, strengths and elevations hold up, but nothing is computed from ephemeris.",
                     12f,
                     cOnSurfaceVar,
                 )
