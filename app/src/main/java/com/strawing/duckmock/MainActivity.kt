@@ -280,93 +280,88 @@ class MainActivity : AppCompatActivity() {
 
         val state = live
         if (state != null) {
+            card("Since this boot") {
+                val counters = (state.getString(Bridge.STATE_CLEARED) ?: "").split(" · ")
+                val tiles = ArrayList<Pair<String, String>>()
+                for (part in counters) {
+                    val trimmed = part.trim()
+                    if (trimmed.isEmpty()) continue
+                    val count = trimmed.substringBefore(' ')
+                    val what = trimmed.substringAfter(' ', "")
+                    if (what.isNotEmpty()) tiles.add(count to what)
+                }
+                tiles.add("${state.getInt(Bridge.STATE_TOUCHED_APPS)}" to "apps")
+                addView(statTiles(tiles))
+            }
+
             card("Live in system_server") {
-                addView(infoRow("Location marker", hookLine(state.getInt(Bridge.STATE_LOCATION_HOOKS))))
-                addView(infoRow("Settings provider", hookLine(state.getInt(Bridge.STATE_SETTINGS_HOOKS))))
+                addView(infoRow("Mock marker", hookLine(state.getInt(Bridge.STATE_LOCATION_HOOKS))))
                 addView(infoRow("App-ops gate", hookLine(state.getInt(Bridge.STATE_APPOPS_HOOKS))))
+                addView(infoRow("Settings provider", hookLine(state.getInt(Bridge.STATE_SETTINGS_HOOKS))))
+                addView(infoRow("Self-test", state.getString(Bridge.STATE_CLEARED)?.substringBefore(" ·") ?: "—"))
                 addView(infoRow("Mock-location op", "#${state.getInt(Bridge.STATE_OP_CODE)}"))
                 addView(
                     infoRow(
                         "Hook engine",
                         when (state.getString(Bridge.STATE_ENGINE)) {
-                            "own" -> "started by DuckMock"
-                            "adopted" -> "borrowed from another module"
+                            "own" -> "own"
+                            "adopted" -> "borrowed"
                             else -> "not started"
                         },
                     )
                 )
-                addView(infoRow("Apps touched", "${state.getInt(Bridge.STATE_TOUCHED_APPS)}"))
-            }
-            card("Since this boot") {
-                for (part in (state.getString(Bridge.STATE_CLEARED) ?: "").split(" · ")) {
-                    val trimmed = part.trim()
-                    if (trimmed.isEmpty()) continue
-                    val count = trimmed.substringBefore(' ')
-                    val what = trimmed.substringAfter(' ', "")
-                    if (what.isEmpty()) {
-                        addView(infoRow("Self-test", trimmed))
-                    } else {
-                        addView(infoRow(what.replaceFirstChar { it.uppercase() }, count))
-                    }
+                state.getString(Bridge.STATE_GNSS)?.takeIf { it.isNotBlank() }?.let {
+                    addView(infoRow("Satellites", it))
                 }
             }
         } else {
-            val report = armed()
-            if (report != null) {
-                card("What the module reported when it armed") {
-                    addView(infoRow("Location marker", hookLine(report["location"]?.toIntOrNull() ?: 0)))
-                    addView(infoRow("Self-test", report["verdict"] ?: "unknown"))
-                    addView(infoRow("App-ops gate", hookLine(report["appops"]?.toIntOrNull() ?: 0)))
-                    addView(infoRow("Settings provider", hookLine(report["settings"]?.toIntOrNull() ?: 0)))
-                    addView(
-                        infoRow(
-                            "Hook engine",
-                            when (report["engine"]) {
-                                "own" -> "started by DuckMock"
-                                "adopted" -> "borrowed from another module"
-                                else -> "not started"
-                            },
-                        )
-                    )
-                    addView(infoRow("Armed at", report["stamp"] ?: "—"))
-                }
-                if ((report["settings"]?.toIntOrNull() ?: 0) == 0) {
-                    card("Why this screen is not live") {
-                        addView(
-                            text(
-                                "The manager talks to the module through the settings provider, and another module hooked that method first. Only one hook per method is allowed, so the live view is unavailable while that module is active.",
-                                13f,
-                                cOnSurfaceVar,
-                            )
-                        )
-                        addView(
-                            text(
-                                "Hiding is unaffected — the numbers above are what the module actually installed.",
-                                13f,
-                                cOnSurface,
-                            )
-                        )
-                    }
-                }
-            } else {
-                card("The module is not answering") {
+            if (snapshot?.armReport?.contains("refused:") == true) {
+                card("Stopped for safety") {
                     addView(
                         text(
-                            "Nothing is hiding anything right now. One of these is true:",
-                            14f,
-                            cOnSurface,
+                            "Three arms in a row did not stay up, so nothing was installed.",
+                            13f,
+                            cOnSurfaceVar,
                         )
                     )
-                    addView(text("•  it has not been flashed, or the phone has not rebooted since", 13f, cOnSurfaceVar))
-                    addView(text("•  it is still arming — that happens about 20 seconds after boot", 13f, cOnSurfaceVar))
-                    addView(text("•  the kill switch is on, or every switch on the Hiding tab is off", 13f, cOnSurfaceVar))
                 }
-            }
-            val snap = snapshot
-            if (snap?.rootAvailable == true) {
-                card("On disk") {
-                    addView(infoRow("Module", if (snap.moduleInstalled) "installed" else "not installed"))
-                    addView(infoRow("Kill switch", if (snap.hooksKilled) "on" else "off"))
+            } else {
+                val report = armed()
+                if (report != null) {
+                    card("Reported when it armed") {
+                        addView(statTiles(listOf(
+                            (report["location"] ?: "0") to "location",
+                            (report["appops"] ?: "0") to "app-ops",
+                            (report["settings"] ?: "0") to "settings",
+                        )))
+                        addView(infoRow("Self-test", report["verdict"] ?: "unknown"))
+                        addView(
+                            infoRow(
+                                "Hook engine",
+                                when (report["engine"]) {
+                                    "own" -> "own"
+                                    "adopted" -> "borrowed"
+                                    else -> "not started"
+                                },
+                            )
+                        )
+                        addView(infoRow("Armed at", report["stamp"] ?: "—"))
+                    }
+                    if ((report["settings"]?.toIntOrNull() ?: 0) == 0) {
+                        card("Not live") {
+                            addView(
+                                text(
+                                    "Another module holds the channel this screen reads. Hiding is unaffected — the numbers above are what was installed.",
+                                    13f,
+                                    cOnSurfaceVar,
+                                )
+                            )
+                        }
+                    }
+                } else {
+                    card("Not answering") {
+                        addView(text("Nothing is hiding anything. Either it has not been flashed, the phone has not rebooted since, it is still arming, or every switch is off.", 13f, cOnSurfaceVar))
+                    }
                 }
             }
         }
@@ -378,23 +373,24 @@ class MainActivity : AppCompatActivity() {
                 val holders = snap.mockOpHolders
                 addView(
                     infoRow(
-                        "Mock-location op held by",
-                        if (holders.isEmpty()) "nothing" else holders.joinToString(", "),
+                        "Mock-location op",
+                        if (holders.isEmpty()) "held by nothing" else holders.joinToString(", "),
                     )
                 )
+                addView(infoRow("Module on disk", if (snap.moduleInstalled) "installed" else "missing"))
                 addView(
                     text(
-                        "Read as root, so this is the truth. An app DuckMock lies to sees the op held by nothing.",
+                        "Read as root, so this is the truth. A lied-to app sees the op held by nothing.",
                         12f,
                         cOnSurfaceVar,
-                    )
+                    ).apply { setPadding(0, dp(8), 0, 0) }
                 )
             }
             card("Kill switch") {
                 addView(
                     switchRow(
                         "Disable every hook",
-                        "Survives a reboot. Use it if a change makes the phone misbehave.",
+                        "Survives a reboot. Turning it off also clears the safety counter.",
                         snap.hooksKilled,
                     ) { checked ->
                         Thread {
@@ -403,17 +399,14 @@ class MainActivity : AppCompatActivity() {
                         }.apply { isDaemon = true }.start()
                     }
                 )
-                addView(
-                    text(
-                        "The module also stops itself after three arms in a row that do not stay up for two minutes. Turning this switch off clears that counter too.",
-                        12f,
-                        cOnSurfaceVar,
-                    )
-                )
-                if (snapshot?.armReport?.contains("refused:") == true) {
+                if (snap.armReport?.contains("refused:") == true) {
                     addView(
                         MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
                             text = "Let it arm again"
+                            layoutParams = LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                            ).apply { topMargin = dp(8) }
                             setOnClickListener {
                                 Thread {
                                     Root.resetSafetyCounter()
@@ -428,29 +421,47 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } else {
-            card("Root not granted to DuckMock") {
+            card("Root not granted") {
                 addView(
                     text(
-                        "The module itself runs fine without this — everything above still works. Root is only needed here to keep your settings across a reboot, and to use the kill switch.",
+                        "Everything above still works without it. Root is only needed to keep settings across a reboot and to use the kill switch.",
                         13f,
                         cOnSurfaceVar,
                     )
                 )
                 addView(
-                    text(
-                        "Grant it in your root manager: Superuser → DuckMock → allow.",
-                        13f,
-                        cOnSurface,
-                    )
-                )
-                addView(
                     MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
                         text = "Check again"
+                        layoutParams = LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ).apply { topMargin = dp(8) }
                         setOnClickListener { reload() }
                     }
                 )
             }
         }
+    }
+
+    private fun statTiles(items: List<Pair<String, String>>): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(6), 0, dp(2))
+        }
+        for ((value, label) in items) {
+            val tile = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                setPadding(dp(2), dp(6), dp(2), dp(6))
+            }
+            tile.addView(
+                text(value, 24f, cPrimary, Typeface.BOLD).apply { gravity = Gravity.CENTER }
+            )
+            tile.addView(text(label, 11f, cOnSurfaceVar).apply { gravity = Gravity.CENTER })
+            row.addView(tile)
+        }
+        return row
     }
 
     private fun hookLine(count: Int): String =
@@ -968,18 +979,26 @@ class MainActivity : AppCompatActivity() {
     // ---------------------------------------------------------------- hiding
 
     private fun renderHiding() {
-        card("Location objects") {
+        content.addView(
+            text(
+                "Turning a hook on for the first time needs a reboot. Turning one off is immediate.",
+                12f,
+                cOnSurfaceVar,
+            ).apply { setPadding(dp(4), dp(12), dp(4), 0) }
+        )
+
+        card("Location") {
             addView(
                 switchRow(
                     "Clear the mock marker",
-                    "Stops system_server marking a location as mock before it reaches any app. This is the hook that matters.",
+                    "The hook that matters. No app sees the fix as mock.",
                     config.hideLocationFlag,
                 ) { config.hideLocationFlag = it; persist(); render() }
             )
             addView(
                 switchRow(
                     "Rename odd providers",
-                    "A mock provider called anything other than gps, network, passive or fused is reported as gps.",
+                    "Anything not gps, network, passive or fused is reported as gps.",
                     config.normalizeProvider,
                     enabled = config.hideLocationFlag,
                 ) { config.normalizeProvider = it; persist() }
@@ -990,41 +1009,36 @@ class MainActivity : AppCompatActivity() {
             addView(
                 switchRow(
                     "Hide the mock-location op",
-                    "An app asking who holds the op is told nobody does. The system and your spoofer keep the truth.",
+                    "Apps are told nobody holds it. The system and your spoofer keep the truth.",
                     config.hideAppOps,
                 ) { config.hideAppOps = it; persist(); render() }
             )
             addView(
                 switchRow(
-                    "Grant the op without the picker",
-                    "Your spoofer works while the developer-options picker stays empty. Pick the spoofer on the Apps tab first.",
+                    "Grant it without the picker",
+                    if (config.spoofers.isEmpty()) {
+                        "Choose a spoofer on the Apps tab to enable this."
+                    } else {
+                        "Your spoofer works while developer options stay empty."
+                    },
                     config.grantMockOp,
                     enabled = config.spoofers.isNotEmpty(),
                 ) { config.grantMockOp = it; persist(); render() }
             )
-            if (config.spoofers.isEmpty()) {
-                addView(
-                    text(
-                        "No spoofer chosen yet, so granting is switched off.",
-                        12f,
-                        cOnSurfaceVar,
-                    )
-                )
-            }
         }
 
         card("Settings") {
             addView(
                 switchRow(
-                    "Hide the legacy settings key",
-                    "Secure.${Config.MOCK_LOCATION_KEY} reads 0. Only old detectors still look here.",
+                    "Hide the legacy key",
+                    "Secure.mock_location reads 0. Only old detectors look here.",
                     config.hideSettingsKey,
                 ) { config.hideSettingsKey = it; persist(); render() }
             )
             addView(
                 switchRow(
-                    "Cover the cursor path too",
-                    "Also rewrites the key when an app queries the settings provider instead of calling it.",
+                    "Cover the cursor path",
+                    "Also rewrites it when an app queries the provider instead of calling it.",
                     config.coverQueryPath,
                     enabled = config.hideSettingsKey,
                 ) { config.coverQueryPath = it; persist() }
@@ -1035,26 +1049,18 @@ class MainActivity : AppCompatActivity() {
             addView(
                 switchRow(
                     "Pause",
-                    "Keeps the hooks loaded but lets every app read the truth. No reboot needed.",
+                    "Hooks stay loaded, every app reads the truth. No reboot.",
                     config.paused,
                 ) { config.paused = it; persist(); render() }
             )
             addView(
                 switchRow(
                     "Verbose log",
-                    "Writes a logcat line for every interception under the DuckMock tag.",
+                    "One logcat line per interception, under the DuckMock tag.",
                     config.verboseLog,
                 ) { config.verboseLog = it; persist() }
             )
         }
-
-        content.addView(
-            text(
-                "Turning a hook on for the first time needs a reboot: hooks are installed once, shortly after boot. Turning one off takes effect immediately.",
-                12f,
-                cOnSurfaceVar,
-            ).apply { setPadding(dp(4), dp(4), dp(4), 0) }
-        )
     }
 
     // ------------------------------------------------------------------ apps
