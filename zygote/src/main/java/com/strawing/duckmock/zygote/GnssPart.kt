@@ -53,7 +53,7 @@ object GnssPart {
     fun setSpoofing(on: Boolean, lat: Double, lon: Double) {
         latitude = lat
         longitude = lon
-        if (on == spoofing) return
+        if (!SpoofState.set(on, lat, lon)) return
         spoofing = on
         if (on) start() else Logx.i("synthetic gnss stopping")
     }

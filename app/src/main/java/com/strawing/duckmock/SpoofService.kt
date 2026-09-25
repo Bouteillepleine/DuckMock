@@ -21,6 +21,7 @@ class SpoofService : Service() {
     companion object {
         const val ACTION_START = "com.strawing.duckmock.SPOOF_START"
         const val ACTION_STOP = "com.strawing.duckmock.SPOOF_STOP"
+        const val ACTION_RETARGET = "com.strawing.duckmock.SPOOF_RETARGET"
 
         private const val CHANNEL = "position"
         private const val NOTIFICATION_ID = 42
@@ -35,6 +36,11 @@ class SpoofService : Service() {
         fun start(context: Context) {
             val intent = Intent(context, SpoofService::class.java).setAction(ACTION_START)
             context.startForegroundService(intent)
+        }
+
+        fun retarget(context: Context) {
+            val intent = Intent(context, SpoofService::class.java).setAction(ACTION_RETARGET)
+            runCatching { context.startService(intent) }
         }
 
         fun stop(context: Context) {
@@ -57,6 +63,15 @@ class SpoofService : Service() {
             ACTION_STOP -> {
                 shutDown()
                 return START_NOT_STICKY
+            }
+            ACTION_RETARGET -> {
+                if (running) {
+                    runCatching {
+                        getSystemService(NotificationManager::class.java)
+                            ?.notify(NOTIFICATION_ID, notification())
+                    }
+                }
+                return START_STICKY
             }
             else -> startUp()
         }

@@ -61,4 +61,5 @@ object Config {
     const val RECORD_QUERY = "query"
     const val RECORD_APPOPS = "appops"
     const val RECORD_GRANT = "grant"
+    const val RECORD_WIFI = "wifi"
 }

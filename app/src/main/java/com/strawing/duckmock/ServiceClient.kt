@@ -59,6 +59,7 @@ object ServiceClient {
                 putBoolean(Bridge.STATE_HIDE_APP_OPS, config.hideAppOps)
                 putBoolean(Bridge.STATE_GRANT_MOCK_OP, config.grantMockOp)
                 putBoolean(Bridge.STATE_SYNTH_GNSS, config.synthesiseGnss)
+                putBoolean(Bridge.STATE_HIDE_WIFI, config.hideWifi)
                 putBoolean(Bridge.STATE_VERBOSE, config.verboseLog)
                 putStringArrayList(Bridge.STATE_SPOOFERS, ArrayList(config.spoofers))
                 putStringArrayList(Bridge.STATE_EXEMPT, ArrayList(config.exempt))

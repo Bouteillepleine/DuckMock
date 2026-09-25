@@ -9,6 +9,7 @@ import com.strawing.duckmock.common.Bridge
 import com.strawing.duckmock.common.Config
 import com.strawing.duckmock.zygote.AppOpsPart
 import com.strawing.duckmock.zygote.GnssPart
+import com.strawing.duckmock.zygote.WifiPart
 import com.strawing.duckmock.zygote.LocationPart
 import com.strawing.duckmock.zygote.SettingsPart
 import com.strawing.duckmock.zygote.hook.XHook
@@ -86,6 +87,8 @@ class MockService(private val context: Context) : IMockService.Stub() {
             putInt(Bridge.STATE_OP_CODE, AppOpsPart.opCode)
             putString(Bridge.STATE_ENGINE, XHook.engineMode())
             putBoolean(Bridge.STATE_SYNTH_GNSS, c.synthesiseGnss)
+            putBoolean(Bridge.STATE_HIDE_WIFI, c.hideWifi)
+            putString(Bridge.STATE_WIFI, "${WifiPart.note} · ${WifiPart.redacted} redacted")
             putString(Bridge.STATE_GNSS, "${GnssPart.resolution} · ${GnssPart.pushed} pushed")
             putBoolean(Bridge.STATE_PAUSED, c.paused)
             putBoolean(Bridge.STATE_HIDE_LOCATION_FLAG, c.hideLocationFlag)
@@ -128,6 +131,7 @@ class MockService(private val context: Context) : IMockService.Stub() {
         if (bundle.containsKey(Bridge.STATE_HIDE_APP_OPS)) next.hideAppOps = bundle.getBoolean(Bridge.STATE_HIDE_APP_OPS)
         if (bundle.containsKey(Bridge.STATE_GRANT_MOCK_OP)) next.grantMockOp = bundle.getBoolean(Bridge.STATE_GRANT_MOCK_OP)
         if (bundle.containsKey(Bridge.STATE_SYNTH_GNSS)) next.synthesiseGnss = bundle.getBoolean(Bridge.STATE_SYNTH_GNSS)
+        if (bundle.containsKey(Bridge.STATE_HIDE_WIFI)) next.hideWifi = bundle.getBoolean(Bridge.STATE_HIDE_WIFI)
         if (bundle.containsKey(Bridge.STATE_VERBOSE)) next.verboseLog = bundle.getBoolean(Bridge.STATE_VERBOSE)
         bundle.getStringArrayList(Bridge.STATE_SPOOFERS)?.let { next.spoofers = LinkedHashSet(it) }
         bundle.getStringArrayList(Bridge.STATE_EXEMPT)?.let { next.exempt = LinkedHashSet(it) }

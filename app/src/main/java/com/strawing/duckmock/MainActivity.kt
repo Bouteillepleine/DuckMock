@@ -656,9 +656,10 @@ class MainActivity : AppCompatActivity() {
                             spoof = spoof.copy(
                                 latitude = hit.latitude,
                                 longitude = hit.longitude,
-                                label = if (spoof.label.isBlank()) line.take(40) else spoof.label,
+                                label = line.take(48),
                             )
                             SpoofPrefs.setTarget(this@MainActivity, spoof)
+                            retarget()
                             geoResults = emptyList()
                             geoNote = "Target set to $line"
                             hideKeyboard()
@@ -794,6 +795,24 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        card("Nearby networks") {
+            addView(
+                switchRow(
+                    "Withhold Wi-Fi identity",
+                    "While spoofing, apps get no scan list and a blanked access point. The BSSID of the router you are on pins your real position in public databases.",
+                    config.hideWifi,
+                ) { config.hideWifi = it; persist(); render() }
+            )
+            live?.getString(Bridge.STATE_WIFI)?.let { addView(infoRow("Engine", it)) }
+            addView(
+                text(
+                    "The values returned are the ones Android itself gives an app without location permission, so they are unremarkable rather than obviously fake.",
+                    12f,
+                    cOnSurfaceVar,
+                )
+            )
+        }
+
         card("Satellites") {
             addView(
                 switchRow(
@@ -829,6 +848,16 @@ class MainActivity : AppCompatActivity() {
         runCatching { SpoofService.start(this) }
             .onFailure { toast("Could not start: ${it.message}") }
         window.decorView.postDelayed({ render(); reload() }, 1500)
+    }
+
+    private fun retarget() {
+        if (!SpoofPrefs.running(this)) return
+        Thread {
+            runCatching {
+                ServiceClient.setSpoofing(this, true, spoof.latitude, spoof.longitude)
+            }
+            SpoofService.retarget(this)
+        }.apply { isDaemon = true }.start()
     }
 
     private fun stopSpoof() {

@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
     <application
         android:allowBackup="false"
@@ -21,6 +22,13 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.strawing.duckprobe.RUN" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".WifiCheck"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.strawing.duckprobe.WIFI" />
             </intent-filter>
         </receiver>
         <receiver
