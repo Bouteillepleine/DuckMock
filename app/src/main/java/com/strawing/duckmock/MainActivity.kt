@@ -597,10 +597,22 @@ class MainActivity : AppCompatActivity() {
             } else {
                 banner(
                     "Not spoofing",
-                    "Your real position is being reported.",
+                    "Your real position is being reported. Start to appear at " +
+                        spoof.label.ifBlank { spoof.pretty() } + ".",
                     cCard,
                     cOnSurfaceVar,
                 )
+            }
+        )
+
+        content.addView(
+            MaterialButton(this).apply {
+                text = if (running) "Stop" else "Start"
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = dp(12) }
+                setOnClickListener { if (running) stopSpoof() else startSpoof() }
             }
         )
 
@@ -743,17 +755,6 @@ class MainActivity : AppCompatActivity() {
             )
             addView(actions)
         }
-
-        content.addView(
-            MaterialButton(this).apply {
-                text = if (running) "Stop" else "Start"
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                ).apply { topMargin = dp(12) }
-                setOnClickListener { if (running) stopSpoof() else startSpoof() }
-            }
-        )
 
         val favourites = SpoofPrefs.favourites(this)
         if (favourites.isNotEmpty()) {
