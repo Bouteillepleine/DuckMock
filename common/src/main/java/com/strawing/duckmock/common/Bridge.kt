@@ -9,6 +9,7 @@ object Bridge {
     const val STATE_VERSION = "version"
     const val STATE_LOCATION_HOOKS = "locationHooks"
     const val STATE_SETTINGS_HOOKS = "settingsHooks"
+    const val STATE_SETTINGS_LENT = "settingsLent"
     const val STATE_APPOPS_HOOKS = "appOpsHooks"
     const val STATE_INSTALLED_AT = "installedAt"
     const val STATE_OP_CODE = "opCode"

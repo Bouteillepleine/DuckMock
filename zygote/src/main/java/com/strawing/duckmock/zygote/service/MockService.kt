@@ -82,6 +82,7 @@ class MockService(private val context: Context) : IMockService.Stub() {
             putInt(Bridge.STATE_VERSION, VERSION)
             putInt(Bridge.STATE_LOCATION_HOOKS, LocationPart.hookCount)
             putInt(Bridge.STATE_SETTINGS_HOOKS, SettingsPart.hookCount)
+            putBoolean(Bridge.STATE_SETTINGS_LENT, SettingsPart.lent)
             putInt(Bridge.STATE_APPOPS_HOOKS, AppOpsPart.hookCount)
             putLong(Bridge.STATE_INSTALLED_AT, installedAtRealtimeMs)
             putInt(Bridge.STATE_OP_CODE, AppOpsPart.opCode)

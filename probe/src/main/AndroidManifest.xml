@@ -40,6 +40,13 @@
             </intent-filter>
         </receiver>
         <receiver
+            android:name=".SettingsCheck"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.strawing.duckprobe.SETTINGS" />
+            </intent-filter>
+        </receiver>
+        <receiver
             android:name=".WifiCheck"
             android:exported="true">
             <intent-filter>

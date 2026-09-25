@@ -124,7 +124,7 @@ object SystemServerPart {
                 "wifi=$wifi[${WifiPart.note}] rawgnss=$rawGnss " +
                 "service=${if (service != null) "up" else "missing"} bridge=$bridge " +
                 "arm=${BootGuard.attempts} " +
-                "provider=${SettingsPart.providerFound} neighbours=$neighbours"
+                "provider=${SettingsPart.providerFound} lent=${SettingsPart.lent} neighbours=$neighbours"
             Logx.i(summary)
             report(summary)
             BootGuard.markSurvivedLater()

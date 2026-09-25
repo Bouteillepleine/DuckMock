@@ -297,7 +297,15 @@ class MainActivity : AppCompatActivity() {
             card("Live in system_server") {
                 addView(infoRow("Mock marker", hookLine(state.getInt(Bridge.STATE_LOCATION_HOOKS))))
                 addView(infoRow("App-ops gate", hookLine(state.getInt(Bridge.STATE_APPOPS_HOOKS))))
-                addView(infoRow("Settings provider", hookLine(state.getInt(Bridge.STATE_SETTINGS_HOOKS))))
+                addView(
+                    infoRow(
+                        "Settings provider",
+                        settingsLine(
+                            state.getInt(Bridge.STATE_SETTINGS_HOOKS),
+                            state.getBoolean(Bridge.STATE_SETTINGS_LENT),
+                        ),
+                    )
+                )
                 addView(infoRow("Self-test", state.getString(Bridge.STATE_CLEARED)?.substringBefore(" ·") ?: "—"))
                 addView(infoRow("Mock-location op", "#${state.getInt(Bridge.STATE_OP_CODE)}"))
                 addView(
@@ -348,10 +356,15 @@ class MainActivity : AppCompatActivity() {
                         addView(infoRow("Armed at", report["stamp"] ?: "—"))
                     }
                     if ((report["settings"]?.toIntOrNull() ?: 0) == 0) {
-                        card("Not live") {
+                        val lent = report["lent"] == "true"
+                        card(if (lent) "Riding a neighbour" else "Settings key visible") {
                             addView(
                                 text(
-                                    "Another module holds the channel this screen reads. Hiding is unaffected — the numbers above are what was installed.",
+                                    if (lent) {
+                                        "Another module holds the settings provider, so the mock-location key is hidden through its hook instead of ours. Everything else is armed normally."
+                                    } else {
+                                        "Another module holds the settings provider and would not take our filter, so the mock-location key is NOT hidden. Every other kind of hiding is unaffected."
+                                    },
                                     13f,
                                     cOnSurfaceVar,
                                 )
@@ -467,6 +480,12 @@ class MainActivity : AppCompatActivity() {
     private fun hookLine(count: Int): String =
         if (count == 0) "not armed" else "$count hook${if (count == 1) "" else "s"}"
 
+    private fun settingsLine(count: Int, lent: Boolean): String = when {
+        count > 0 -> hookLine(count)
+        lent -> "served by a neighbour"
+        else -> "not armed"
+    }
+
     private fun armed(): Map<String, String>? {
         val line = snapshot?.armReport?.lineSequence()?.lastOrNull { it.contains("armed:") } ?: return null
         val out = HashMap<String, String>()
@@ -531,7 +550,8 @@ class MainActivity : AppCompatActivity() {
             state.getInt(Bridge.STATE_APPOPS_HOOKS) > 0
         ) parts.add("app-ops")
         if (state.getBoolean(Bridge.STATE_HIDE_SETTINGS_KEY) &&
-            state.getInt(Bridge.STATE_SETTINGS_HOOKS) > 0
+            (state.getInt(Bridge.STATE_SETTINGS_HOOKS) > 0 ||
+                state.getBoolean(Bridge.STATE_SETTINGS_LENT))
         ) parts.add("settings key")
         if (parts.isEmpty()) {
             return banner(
