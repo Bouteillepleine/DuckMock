@@ -822,7 +822,7 @@ class MainActivity : AppCompatActivity() {
             )
             addView(
                 text(
-                    "It does not touch GNSS itself: an app that watches the satellite list can still notice a fix with no satellites behind it.",
+                    "With the satellite view switched on above, a fix no longer arrives bare. The sky is plausible but not computed from ephemeris, so it holds up against a count, not against the real almanac.",
                     12f,
                     cOnSurfaceVar,
                 )
