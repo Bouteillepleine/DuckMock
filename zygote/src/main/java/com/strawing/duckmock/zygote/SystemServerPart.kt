@@ -105,8 +105,14 @@ object SystemServerPart {
                     .getOrDefault(0)
             } else 0
 
+            val grant = if (config.grantMockOp) {
+                runCatching { AppOpsPart.armGrant() }
+                    .onFailure { Logx.e("grant path failed to arm", it) }
+                    .getOrDefault(0)
+            } else 0
+
             val summary = "armed: engine=${XHook.engineMode()} location=$location " +
-                "(${LocationPart.verdict()}) settings=$settings appops=$appOps " +
+                "(${LocationPart.verdict()}) settings=$settings appops=$appOps grant=$grant " +
                 "service=${if (service != null) "up" else "missing"} bridge=$bridge " +
                 "arm=${BootGuard.attempts} " +
                 "provider=${SettingsPart.providerFound} neighbours=$neighbours"

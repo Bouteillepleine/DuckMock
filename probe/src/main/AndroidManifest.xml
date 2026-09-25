@@ -23,5 +23,12 @@
                 <action android:name="com.strawing.duckprobe.RUN" />
             </intent-filter>
         </receiver>
+        <receiver
+            android:name=".MockAttempt"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.strawing.duckprobe.TRY_MOCK" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

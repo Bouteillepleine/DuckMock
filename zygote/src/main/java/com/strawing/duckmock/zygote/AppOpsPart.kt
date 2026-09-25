@@ -28,7 +28,59 @@ object AppOpsPart {
         private set
 
     @Volatile
+    var grantHooks = 0
+        private set
+
+    @Volatile
     private var seen = false
+
+    private val NOTE_METHODS = listOf(
+        "noteOp", "noteOpNoThrow", "noteOperation", "noteOperationImpl",
+        "checkOpNoThrow", "unsafeCheckOpNoThrow", "checkOp",
+    )
+
+    fun armGrant(): Int {
+        val manager = XHook.findClass("android.app.AppOpsManager") ?: return 0
+        var count = 0
+        for (name in NOTE_METHODS) {
+            count += XHook.hookAll(
+                manager,
+                name,
+                minParams = 2,
+                returnType = Int::class.javaPrimitiveType,
+                body = ::onNote,
+            )
+        }
+        grantHooks = count
+        Logx.i("grant path armed: $count methods on AppOpsManager")
+        return count
+    }
+
+    private fun isOurOp(value: Any?): Boolean = when (value) {
+        is Int -> value == opCode
+        is String -> value == Config.OPSTR_MOCK_LOCATION
+        else -> false
+    }
+
+    private fun onNote(f: Frame) {
+        if (!ModuleConfig.active() || !ModuleConfig.config.grantMockOp) {
+            f.proceed()
+            return
+        }
+        if (!isOurOp(f.arg(0))) {
+            f.proceed()
+            return
+        }
+        val uid = f.intArg(1)
+        if (uid == null || !Targets.isSpoofer(uid)) {
+            f.proceed()
+            return
+        }
+        f.result = Config.MODE_ALLOWED
+        granted++
+        SystemServerPart.service?.note(uid, Config.RECORD_GRANT)
+        Logx.v { "let ${Targets.describe(uid)} use the mock-location op via ${f.member.name}" }
+    }
 
     fun arm(): Int {
         opCode = resolveOpCode()
