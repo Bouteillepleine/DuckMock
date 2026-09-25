@@ -156,10 +156,11 @@ class MainActivity : AppCompatActivity() {
             val pushed = runCatching { ServiceClient.push(this, copy) }.getOrDefault(false)
             runCatching { Root.refreshDescription() }
             runOnUiThread {
-                if (!written) {
-                    toast("Could not write the configuration, is root granted?")
-                } else if (!pushed) {
-                    toast("Saved. It takes effect on the next reboot.")
+                when {
+                    pushed && written -> Unit
+                    pushed -> toast("Applied now. Grant root to keep it after a reboot.")
+                    written -> toast("Saved. It takes effect on the next reboot.")
+                    else -> toast("Nothing saved: no root, and the module is not answering.")
                 }
                 reload()
             }
@@ -207,115 +208,188 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun headerSubtitle(): String {
-        val snap = snapshot ?: return if (loaded) "no root" else "reading the device…"
-        if (!snap.rootAvailable) return "no root"
-        if (!snap.moduleInstalled) return "module not installed"
-        val version = snap.moduleVersion ?: Config.MODULE_VERSION
-        return "v$version · ${snap.zygisk}"
+        if (!loaded) return "reading the device…"
+        val version = snapshot?.moduleVersion ?: Config.MODULE_VERSION
+        val where = when {
+            live != null -> "running in system_server"
+            snapshot?.moduleInstalled == true -> "installed, not answering"
+            snapshot?.rootAvailable == true -> "not installed"
+            else -> "no live module"
+        }
+        return "v$version · $where"
+    }
+
+    private val uidNames = HashMap<Int, String>()
+    private val uidPackages = HashMap<Int, String>()
+
+    private fun resolveUid(uid: Int) {
+        if (uidNames.containsKey(uid)) return
+        if (uid == Config.SYSTEM_UID) {
+            uidNames[uid] = "Android system"
+            uidPackages[uid] = "system_server · uid $uid"
+            return
+        }
+        val pm = packageManager
+        val packages = runCatching { pm.getPackagesForUid(uid) }.getOrNull()
+        if (packages.isNullOrEmpty()) {
+            uidNames[uid] = "Unknown app"
+            uidPackages[uid] = "uid $uid"
+            return
+        }
+        val best = packages.firstOrNull { pkg ->
+            runCatching { pm.getLaunchIntentForPackage(pkg) }.getOrNull() != null
+        } ?: packages[0]
+        val label = runCatching {
+            pm.getApplicationLabel(pm.getApplicationInfo(best, 0)).toString()
+        }.getOrNull()
+        uidNames[uid] = if (label.isNullOrBlank()) best else label
+        uidPackages[uid] = if (packages.size > 1) {
+            "$best +${packages.size - 1} more · uid $uid"
+        } else {
+            "$best · uid $uid"
+        }
+    }
+
+    private fun appLabel(uid: Int): String {
+        resolveUid(uid)
+        return uidNames[uid] ?: "uid $uid"
+    }
+
+    private fun appPackage(uid: Int): String {
+        resolveUid(uid)
+        return uidPackages[uid] ?: "uid $uid"
     }
 
     // ---------------------------------------------------------------- status
 
     private fun renderStatus() {
-        val snap = snapshot
         if (!loaded) {
-            content.addView(banner("Reading…", "Asking the device what it is doing.", cCard, cOnSurfaceVar))
-            return
-        }
-        if (snap == null || !snap.rootAvailable) {
-            content.addView(
-                banner(
-                    "No root",
-                    "DuckMock needs root to read and write its own configuration. Grant it, then reopen.",
-                    cErrorCont,
-                    cOnErrorCont,
-                )
-            )
-            return
-        }
-        if (!snap.moduleInstalled) {
-            content.addView(
-                banner(
-                    "Module not installed",
-                    "Flash the DuckMock zip in KernelSU, Magisk or APatch, then reboot.",
-                    cErrorCont,
-                    cOnErrorCont,
-                )
-            )
+            content.addView(banner("Reading…", "Asking the module what it is doing.", cCard, cOnSurfaceVar))
             return
         }
 
-        content.addView(verdictBanner(snap))
+        content.addView(verdictBanner())
 
-        card("What system_server is doing") {
-            val state = live
-            if (state == null) {
-                addView(text("The module is not answering.", 14f, cOnSurfaceVar))
+        val state = live
+        if (state != null) {
+            card("Live in system_server") {
+                addView(infoRow("Location marker", hookLine(state.getInt(Bridge.STATE_LOCATION_HOOKS))))
+                addView(infoRow("Settings provider", hookLine(state.getInt(Bridge.STATE_SETTINGS_HOOKS))))
+                addView(infoRow("App-ops gate", hookLine(state.getInt(Bridge.STATE_APPOPS_HOOKS))))
+                addView(infoRow("Mock-location op", "#${state.getInt(Bridge.STATE_OP_CODE)}"))
+                addView(infoRow("Apps touched", "${state.getInt(Bridge.STATE_TOUCHED_APPS)}"))
+            }
+            card("Since this boot") {
+                for (part in (state.getString(Bridge.STATE_CLEARED) ?: "").split(" · ")) {
+                    val trimmed = part.trim()
+                    if (trimmed.isEmpty()) continue
+                    val count = trimmed.substringBefore(' ')
+                    val what = trimmed.substringAfter(' ', "")
+                    if (what.isEmpty()) {
+                        addView(infoRow("Self-test", trimmed))
+                    } else {
+                        addView(infoRow(what.replaceFirstChar { it.uppercase() }, count))
+                    }
+                }
+            }
+        } else {
+            card("The module is not answering") {
                 addView(
                     text(
-                        "That is normal until the next reboot after a fresh install. It also happens when every hook is switched off.",
+                        "Nothing is hiding anything right now. One of these is true:",
+                        14f,
+                        cOnSurface,
+                    )
+                )
+                addView(text("•  it has not been flashed, or the phone has not rebooted since", 13f, cOnSurfaceVar))
+                addView(text("•  it is still arming — that happens about 20 seconds after boot", 13f, cOnSurfaceVar))
+                addView(text("•  the kill switch is on, or every switch on the Hiding tab is off", 13f, cOnSurfaceVar))
+                val snap = snapshot
+                if (snap?.rootAvailable == true) {
+                    addView(
+                        infoRow(
+                            "On disk",
+                            if (snap.moduleInstalled) "installed" else "not installed",
+                        )
+                    )
+                    addView(infoRow("Kill switch", if (snap.hooksKilled) "on" else "off"))
+                }
+            }
+        }
+
+        val snap = snapshot
+        if (snap?.rootAvailable == true) {
+            card("What the system really holds") {
+                addView(infoRow("Secure ${Config.MOCK_LOCATION_KEY}", snap.mockLocationSetting ?: "unset"))
+                val holders = snap.mockOpHolders
+                addView(
+                    infoRow(
+                        "Mock-location op held by",
+                        if (holders.isEmpty()) "nothing" else holders.joinToString(", "),
+                    )
+                )
+                addView(
+                    text(
+                        "Read as root, so this is the truth. An app DuckMock lies to sees the op held by nothing.",
                         12f,
                         cOnSurfaceVar,
                     )
                 )
-            } else {
-                addView(infoRow("Location marker", "${state.getInt(Bridge.STATE_LOCATION_HOOKS)} hooks"))
-                addView(infoRow("Settings provider", "${state.getInt(Bridge.STATE_SETTINGS_HOOKS)} hooks"))
-                addView(infoRow("App-ops gate", "${state.getInt(Bridge.STATE_APPOPS_HOOKS)} hooks"))
-                addView(infoRow("Mock-location op", "#${state.getInt(Bridge.STATE_OP_CODE)}"))
-                addView(infoRow("Counters", state.getString(Bridge.STATE_CLEARED) ?: "—"))
-                addView(infoRow("Apps touched", "${state.getInt(Bridge.STATE_TOUCHED_APPS)}"))
             }
-        }
-
-        card("What the system still says") {
-            addView(
-                infoRow(
-                    "Secure ${Config.MOCK_LOCATION_KEY}",
-                    snap.mockLocationSetting ?: "unset",
+            card("Kill switch") {
+                addView(
+                    switchRow(
+                        "Disable every hook",
+                        "Survives a reboot. Use it if a change makes the phone misbehave.",
+                        snap.hooksKilled,
+                    ) { checked ->
+                        Thread {
+                            Root.setHooksKilled(checked)
+                            runOnUiThread { reload() }
+                        }.apply { isDaemon = true }.start()
+                    }
                 )
-            )
-            val holders = snap.mockOpHolders
-            addView(
-                infoRow(
-                    "Holds the mock-location op",
-                    if (holders.isEmpty()) "nothing" else holders.joinToString(", "),
+                addView(
+                    text(
+                        "The module also disables itself after three boots that do not stay up.",
+                        12f,
+                        cOnSurfaceVar,
+                    )
                 )
-            )
-            addView(
-                text(
-                    "These two lines are read as root, so they always show the truth. An app that DuckMock lies to sees the mock-location op held by nothing.",
-                    12f,
-                    cOnSurfaceVar,
+            }
+        } else {
+            card("Root not granted to DuckMock") {
+                addView(
+                    text(
+                        "The module itself runs fine without this — everything above still works. Root is only needed here to keep your settings across a reboot, and to use the kill switch.",
+                        13f,
+                        cOnSurfaceVar,
+                    )
                 )
-            )
-        }
-
-        card("Kill switch") {
-            addView(
-                switchRow(
-                    "Disable every hook",
-                    "Survives a reboot. Use it if a change makes the phone misbehave.",
-                    snap.hooksKilled,
-                ) { checked ->
-                    Thread {
-                        Root.setHooksKilled(checked)
-                        runOnUiThread { reload() }
-                    }.apply { isDaemon = true }.start()
-                }
-            )
-            addView(
-                text(
-                    "The module also disables itself on its own after three failed boots.",
-                    12f,
-                    cOnSurfaceVar,
+                addView(
+                    text(
+                        "Grant it in your root manager: Superuser → DuckMock → allow.",
+                        13f,
+                        cOnSurface,
+                    )
                 )
-            )
+                addView(
+                    MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
+                        text = "Check again"
+                        setOnClickListener { reload() }
+                    }
+                )
+            }
         }
     }
 
-    private fun verdictBanner(snap: Root.Snapshot): View {
-        if (snap.hooksKilled) {
+    private fun hookLine(count: Int): String =
+        if (count == 0) "not armed" else "$count hook${if (count == 1) "" else "s"}"
+
+    private fun verdictBanner(): View {
+        val snap = snapshot
+        val state = live
+        if (snap?.rootAvailable == true && snap.hooksKilled) {
             return banner(
                 "Hooks disabled",
                 "The kill switch is on. Every app reads the truth.",
@@ -323,7 +397,15 @@ class MainActivity : AppCompatActivity() {
                 cOnErrorCont,
             )
         }
-        if (config.paused) {
+        if (state == null) {
+            return banner(
+                "Not running",
+                "system_server is not answering, so nothing is being hidden.",
+                cTertiaryCont,
+                cOnTertiaryCont,
+            )
+        }
+        if (state.getBoolean(Bridge.STATE_PAUSED)) {
             return banner(
                 "Paused",
                 "The hooks are loaded but every app reads the truth.",
@@ -332,9 +414,9 @@ class MainActivity : AppCompatActivity() {
             )
         }
         val parts = ArrayList<String>()
-        if (config.hideLocationFlag) parts.add("mock flag")
-        if (config.hideAppOps) parts.add("app-ops")
-        if (config.hideSettingsKey) parts.add("settings key")
+        if (state.getBoolean(Bridge.STATE_HIDE_LOCATION_FLAG)) parts.add("mock flag")
+        if (state.getBoolean(Bridge.STATE_HIDE_APP_OPS)) parts.add("app-ops")
+        if (state.getBoolean(Bridge.STATE_HIDE_SETTINGS_KEY)) parts.add("settings key")
         if (parts.isEmpty()) {
             return banner(
                 "Nothing enabled",
@@ -343,16 +425,13 @@ class MainActivity : AppCompatActivity() {
                 cOnTertiaryCont,
             )
         }
-        val state = live
+        val selfTest = state.getString(Bridge.STATE_CLEARED)?.substringBefore(" ·")
         val detail = buildString {
             append("Hiding ")
             append(parts.joinToString(", "))
             append(" from every app.")
-            if (state != null && state.getInt(Bridge.STATE_LOCATION_HOOKS) > 0) {
-                append(" Self-test: ")
-                append(state.getString(Bridge.STATE_CLEARED)?.substringBefore(" ·") ?: "unknown")
-                append('.')
-            }
+            if (selfTest == "live") append(" Self-test passed.")
+            else if (selfTest != null) append(" Self-test: $selfTest.")
         }
         return banner("Active", detail, cPrimaryCont, cOnPrimaryCont)
     }
@@ -543,8 +622,14 @@ class MainActivity : AppCompatActivity() {
                 val count = rec.getInt(Bridge.REC_COUNT)
                 val last = rec.getLong(Bridge.REC_LAST)
                 val kinds = rec.getStringArrayList(Bridge.REC_KINDS)?.joinToString(", ") ?: ""
-                val who = if (uid == Config.SYSTEM_UID) "system_server" else "uid $uid"
-                addView(infoRow(who, "$count × $kinds · ${fmt.format(Date(last))}"))
+                addView(
+                    recordRow(
+                        appLabel(uid),
+                        appPackage(uid),
+                        "$count ×",
+                        "$kinds · ${fmt.format(Date(last))}",
+                    )
+                )
             }
         }
         content.addView(
@@ -603,6 +688,28 @@ class MainActivity : AppCompatActivity() {
             ).apply { topMargin = dp(10) }
             addView(body)
         }
+    }
+
+    private fun recordRow(title: String, sub: String, right: String, rightSub: String): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(8), 0, dp(8))
+        }
+        val left = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.1f)
+        }
+        left.addView(text(title, 15f, cOnSurface))
+        left.addView(text(sub, 11f, cOnSurfaceVar))
+        row.addView(left)
+        val rightBox = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        rightBox.addView(text(right, 15f, cPrimary).apply { gravity = Gravity.END })
+        rightBox.addView(text(rightSub, 11f, cOnSurfaceVar).apply { gravity = Gravity.END })
+        row.addView(rightBox)
+        return row
     }
 
     private fun infoRow(label: String, value: String): View {

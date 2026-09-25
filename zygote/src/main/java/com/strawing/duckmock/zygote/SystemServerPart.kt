@@ -2,6 +2,7 @@ package com.strawing.duckmock.zygote
 
 import android.os.SystemClock
 import com.strawing.duckmock.common.Config
+import com.strawing.duckmock.zygote.hook.InitLock
 import com.strawing.duckmock.zygote.service.MockService
 import com.strawing.duckmock.zygote.util.Logx
 import com.strawing.duckmock.zygote.util.ModuleConfig
@@ -9,7 +10,7 @@ import kotlin.concurrent.thread
 
 object SystemServerPart {
 
-    private const val SETTLE_MS = 5000L
+    private const val SETTLE_MS = 20000L
     private const val BOOT_WAIT_PASSES = 600
     private const val MODULE_LIB_PREFIX = "/data/adb/modules/"
 
@@ -57,35 +58,37 @@ object SystemServerPart {
 
         val config = ModuleConfig.config
 
-        val settings = runCatching { SettingsPart.arm() }
-            .onFailure { Logx.e("settings gate failed to arm", it) }
-            .getOrDefault(0)
+        InitLock.serialized {
+            val settings = runCatching { SettingsPart.arm() }
+                .onFailure { Logx.e("settings gate failed to arm", it) }
+                .getOrDefault(0)
 
-        val context = Targets.systemContext()
-        if (context != null) {
-            val svc = MockService(context)
-            svc.installedAtRealtimeMs = SystemClock.elapsedRealtime()
-            service = svc
-        } else {
-            Logx.e("no system context, the manager app will not see live state")
+            val context = Targets.systemContext()
+            if (context != null) {
+                val svc = MockService(context)
+                svc.installedAtRealtimeMs = SystemClock.elapsedRealtime()
+                service = svc
+            } else {
+                Logx.e("no system context, the manager app will not see live state")
+            }
+
+            val location = if (config.hideLocationFlag) {
+                runCatching { LocationPart.arm() }
+                    .onFailure { Logx.e("location gate failed to arm", it) }
+                    .getOrDefault(0)
+            } else 0
+
+            val appOps = if (config.hideAppOps || config.grantMockOp) {
+                runCatching { AppOpsPart.arm() }
+                    .onFailure { Logx.e("app-ops gate failed to arm", it) }
+                    .getOrDefault(0)
+            } else 0
+
+            Logx.i(
+                "armed: location=$location (${LocationPart.verdict()}) " +
+                    "settings=$settings appops=$appOps"
+            )
         }
-
-        val location = if (config.hideLocationFlag) {
-            runCatching { LocationPart.arm() }
-                .onFailure { Logx.e("location gate failed to arm", it) }
-                .getOrDefault(0)
-        } else 0
-
-        val appOps = if (config.hideAppOps || config.grantMockOp) {
-            runCatching { AppOpsPart.arm() }
-                .onFailure { Logx.e("app-ops gate failed to arm", it) }
-                .getOrDefault(0)
-        } else 0
-
-        Logx.i(
-            "armed: location=$location (${LocationPart.verdict()}) " +
-                "settings=$settings appops=$appOps"
-        )
     }
 
     private fun waitForBootCompleted(): Boolean {

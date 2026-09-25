@@ -10,13 +10,13 @@ flag() {
 }
 
 if [ -f "$MODDIR/disable_hooks" ]; then
-    STATUS="Hooks disabled"
+    STATUS="⛔ Hooks disabled"
     DETAIL="Every app reads the truth. Clear the kill switch, then reboot"
 elif ! [ -f "$CONFIG" ]; then
-    STATUS="No configuration"
+    STATUS="⚠️ No configuration"
     DETAIL="Open the manager once to write one"
 elif flag paused; then
-    STATUS="Paused"
+    STATUS="⏸️ Paused"
     DETAIL="Hooks are loaded but every app reads the truth"
 else
     PARTS=""
@@ -28,10 +28,10 @@ else
         [ -n "$PARTS" ] && PARTS="$PARTS, settings key" || PARTS="settings key"
     fi
     if [ -z "$PARTS" ]; then
-        STATUS="Nothing enabled"
+        STATUS="⚠️ Nothing enabled"
         DETAIL="Every switch is off"
     else
-        STATUS="Active"
+        STATUS="✅"
         DETAIL="Hiding $PARTS from every app"
         flag grantMockOp && DETAIL="$DETAIL, mock op granted without the picker"
     fi
