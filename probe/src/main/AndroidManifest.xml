@@ -25,6 +25,13 @@
             </intent-filter>
         </receiver>
         <receiver
+            android:name=".RawGnssCheck"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.strawing.duckprobe.RAWGNSS" />
+            </intent-filter>
+        </receiver>
+        <receiver
             android:name=".WifiCheck"
             android:exported="true">
             <intent-filter>
