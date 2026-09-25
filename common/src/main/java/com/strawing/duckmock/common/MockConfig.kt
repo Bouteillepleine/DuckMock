@@ -13,6 +13,7 @@ data class MockConfig(
     var grantMockOp: Boolean = false,
     var synthesiseGnss: Boolean = false,
     var hideWifi: Boolean = true,
+    var hideCells: Boolean = false,
     var verboseLog: Boolean = false,
     var spoofers: MutableSet<String> = LinkedHashSet(),
     var exempt: MutableSet<String> = LinkedHashSet(),
@@ -43,6 +44,7 @@ data class MockConfig(
         o.put(KEY_GRANT_MOCK_OP, grantMockOp)
         o.put(KEY_SYNTH_GNSS, synthesiseGnss)
         o.put(KEY_HIDE_WIFI, hideWifi)
+        o.put(KEY_HIDE_CELLS, hideCells)
         o.put(KEY_VERBOSE, verboseLog)
         o.put(KEY_SPOOFERS, JSONArray(spoofers.toList()))
         o.put(KEY_EXEMPT, JSONArray(exempt.toList()))
@@ -62,6 +64,7 @@ data class MockConfig(
         private const val KEY_GRANT_MOCK_OP = "grantMockOp"
         private const val KEY_SYNTH_GNSS = "synthesiseGnss"
         private const val KEY_HIDE_WIFI = "hideWifi"
+        private const val KEY_HIDE_CELLS = "hideCells"
         private const val KEY_VERBOSE = "verboseLog"
         private const val KEY_SPOOFERS = "spoofers"
         private const val KEY_EXEMPT = "exempt"
@@ -90,6 +93,7 @@ data class MockConfig(
                     grantMockOp = o.optBoolean(KEY_GRANT_MOCK_OP, false),
                     synthesiseGnss = o.optBoolean(KEY_SYNTH_GNSS, false),
                     hideWifi = o.optBoolean(KEY_HIDE_WIFI, true),
+                    hideCells = o.optBoolean(KEY_HIDE_CELLS, false),
                     verboseLog = o.optBoolean(KEY_VERBOSE, false),
                     spoofers = strings(o, KEY_SPOOFERS),
                     exempt = strings(o, KEY_EXEMPT),

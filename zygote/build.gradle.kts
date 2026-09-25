@@ -64,12 +64,12 @@ kotlin {
 }
 
 zygisk {
-    packages(ZygoteLoader.PACKAGE_SYSTEM_SERVER)
+    packages(ZygoteLoader.PACKAGE_SYSTEM_SERVER, "com.android.phone")
 
     id = moduleId
     name = "DuckMock"
     author = "XxxY"
-    description = "Hides mock location from every app, from inside system_server only. No injection into app processes."
+    description = "Hides mock location from every app. Hooks live in system_server, and in the phone process only when cell hiding is switched on. Never in an app process."
     entrypoint = "$appPackageName.zygote.ZygoteEntry"
     archiveName = "DuckMock-$moduleVersionName"
     attachNativeLibs = true

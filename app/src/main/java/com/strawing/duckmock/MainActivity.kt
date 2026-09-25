@@ -814,6 +814,30 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
+        card("Cell towers") {
+            addView(
+                switchRow(
+                    "Withhold the cell list",
+                    "The serving cell gives your city, and its country code contradicts a distant position outright.",
+                    config.hideCells,
+                ) { config.hideCells = it; persist(); render() }
+            )
+            addView(
+                text(
+                    "Unlike everything else here this is not tied to spoofing: the phone process cannot be told when a spoof starts, so it applies for the whole boot. Needs a reboot to take effect either way.",
+                    12f,
+                    cOnSurfaceVar,
+                )
+            )
+            addView(
+                text(
+                    "It also cannot hide the network country, which any app reads with no permission at all from a system property. Your SIMs already say za and fr.",
+                    12f,
+                    cOnSurfaceVar,
+                )
+            )
+        }
+
         card("Satellites") {
             addView(
                 switchRow(

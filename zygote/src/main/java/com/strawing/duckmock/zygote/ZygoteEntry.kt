@@ -12,7 +12,7 @@ object ZygoteEntry {
     fun premain() {
         try {
             val pkg = ZygoteLoader.getPackageName()
-            if (pkg != Config.SYSTEM_SERVER_PACKAGE) return
+            if (pkg != Config.SYSTEM_SERVER_PACKAGE && pkg != Config.PHONE_PACKAGE) return
             val moduleDir = ZygoteLoader.getModuleDir()
             ModuleConfig.load(moduleDir)
             NativeLib.load(moduleDir)
@@ -25,12 +25,17 @@ object ZygoteEntry {
     fun main() {
         try {
             val pkg = ZygoteLoader.getPackageName()
-            if (pkg != Config.SYSTEM_SERVER_PACKAGE) {
-                Logx.e("injected into $pkg, which DuckMock never asked for")
-                return
+            when (pkg) {
+                Config.SYSTEM_SERVER_PACKAGE -> {
+                    Logx.v { "system_server reached (${ZygoteLoader.getProcessName()})" }
+                    SystemServerPart.init()
+                }
+                Config.PHONE_PACKAGE -> {
+                    Logx.i("phone process reached (${ZygoteLoader.getProcessName()})")
+                    PhonePart.init()
+                }
+                else -> Logx.e("injected into $pkg, which DuckMock never asked for")
             }
-            Logx.v { "system_server reached (${ZygoteLoader.getProcessName()})" }
-            SystemServerPart.init()
         } catch (t: Throwable) {
             Logx.e("main failed", t)
         }
