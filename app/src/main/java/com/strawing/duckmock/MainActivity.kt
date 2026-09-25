@@ -10,6 +10,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -593,14 +594,24 @@ class MainActivity : AppCompatActivity() {
         )
 
         card("Find an address") {
-            addView(valueField("Address or place", geoQuery) { geoQuery = it })
+            addView(
+                valueField(
+                    "Address, place or postcode",
+                    geoQuery,
+                    imeSearch = true,
+                    onSearch = { searchAddress() },
+                ) { geoQuery = it }
+            )
             val row = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
-                setPadding(0, dp(8), 0, 0)
+                setPadding(0, dp(10), 0, 0)
             }
             row.addView(
                 MaterialButton(this@MainActivity).apply {
                     text = "Search"
+                    layoutParams = LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f,
+                    ).apply { marginEnd = dp(6) }
                     setOnClickListener { searchAddress() }
                 }
             )
@@ -608,23 +619,29 @@ class MainActivity : AppCompatActivity() {
                 MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
                     text = "What is here?"
                     layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ).apply { marginStart = dp(8) }
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f,
+                    ).apply { marginStart = dp(6) }
                     setOnClickListener { describeHere() }
                 }
             )
             addView(row)
-            geoNote?.let { addView(text(it, 13f, cOnSurfaceVar)) }
-            for (hit in geoResults) {
-                val line = Geo.label(hit)
+
+            geoNote?.let {
+                addView(text(it, 13f, cPrimary).apply { setPadding(0, dp(10), 0, 0) })
+            }
+
+            if (geoResults.isNotEmpty()) {
                 addView(
-                    TextView(this@MainActivity).apply {
-                        text = "→  $line"
-                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
-                        setTextColor(cPrimary)
-                        setPadding(0, dp(8), 0, dp(8))
-                        setOnClickListener {
+                    text(
+                        "${geoResults.size} result${if (geoResults.size == 1) "" else "s"} · tap one to go there",
+                        12f,
+                        cOnSurfaceVar,
+                    ).apply { setPadding(0, dp(10), 0, dp(2)) }
+                )
+                for (hit in geoResults) {
+                    val line = Geo.label(hit)
+                    addView(
+                        resultRow(line, "%.5f, %.5f".format(java.util.Locale.ROOT, hit.latitude, hit.longitude)) {
                             spoof = spoof.copy(
                                 latitude = hit.latitude,
                                 longitude = hit.longitude,
@@ -632,72 +649,76 @@ class MainActivity : AppCompatActivity() {
                             )
                             SpoofPrefs.setTarget(this@MainActivity, spoof)
                             geoResults = emptyList()
-                            geoNote = "Moved to $line"
+                            geoNote = "Target set to $line"
+                            hideKeyboard()
                             render()
                         }
-                    }
-                )
+                    )
+                }
             }
+
             if (!Geo.available()) {
                 addView(
-                    text(
-                        "No geocoder on this device, so only coordinates will work.",
-                        12f,
-                        cOnSurfaceVar,
-                    )
-                )
-            } else {
-                addView(
-                    text(
-                        "The lookup goes through Android's own geocoder, which resolves it in the system's network-location service — the same one any maps app uses.",
-                        12f,
-                        cOnSurfaceVar,
-                    )
+                    text("No geocoder here, so only coordinates will work.", 12f, cOnSurfaceVar)
                 )
             }
         }
 
         card("Where to be") {
-            addView(valueField("Latitude", spoof.latitude.toString()) {
-                it.toDoubleOrNull()?.let { v -> spoof = spoof.copy(latitude = v) }
-            })
-            addView(valueField("Longitude", spoof.longitude.toString()) {
-                it.toDoubleOrNull()?.let { v -> spoof = spoof.copy(longitude = v) }
-            })
-            addView(valueField("Altitude (m)", spoof.altitude.toString()) {
-                it.toDoubleOrNull()?.let { v -> spoof = spoof.copy(altitude = v) }
-            })
-            addView(valueField("Accuracy (m)", spoof.accuracy.toString()) {
-                it.toFloatOrNull()?.let { v -> spoof = spoof.copy(accuracy = v) }
-            })
-            addView(valueField("Wander (m)", spoof.jitterMetres.toString()) {
-                it.toFloatOrNull()?.let { v -> spoof = spoof.copy(jitterMetres = v) }
-            })
             addView(
-                text(
-                    "A position that never moves by a single centimetre is a tell in itself. Wander adds a small random drift on each update; set it to 0 to stand perfectly still.",
-                    12f,
-                    cOnSurfaceVar,
+                sideBySide(
+                    valueField("Latitude", spoof.latitude.toString(), numeric = true) {
+                        decimal(it)?.toDoubleOrNull()?.let { v -> spoof = spoof.copy(latitude = v) }
+                    },
+                    valueField("Longitude", spoof.longitude.toString(), numeric = true) {
+                        decimal(it)?.toDoubleOrNull()?.let { v -> spoof = spoof.copy(longitude = v) }
+                    },
                 )
             )
-            addView(valueField("Name (optional)", spoof.label) { spoof = spoof.copy(label = it) })
-            val row = LinearLayout(this@MainActivity).apply {
+            addView(
+                sideBySide(
+                    valueField("Altitude (m)", spoof.altitude.toString(), numeric = true) {
+                        decimal(it)?.toDoubleOrNull()?.let { v -> spoof = spoof.copy(altitude = v) }
+                    },
+                    valueField("Accuracy (m)", spoof.accuracy.toString(), numeric = true) {
+                        decimal(it)?.toFloatOrNull()?.let { v -> spoof = spoof.copy(accuracy = v) }
+                    },
+                )
+            )
+            addView(
+                sideBySide(
+                    valueField("Wander (m)", spoof.jitterMetres.toString(), numeric = true) {
+                        decimal(it)?.toFloatOrNull()?.let { v -> spoof = spoof.copy(jitterMetres = v) }
+                    },
+                    valueField("Name", spoof.label) { spoof = spoof.copy(label = it) },
+                )
+            )
+            addView(
+                text(
+                    "Wander drifts the position a few metres on each update. A fix frozen to the centimetre is a tell; set 0 to stand still.",
+                    12f,
+                    cOnSurfaceVar,
+                ).apply { setPadding(0, dp(10), 0, 0) }
+            )
+            val actions = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
-                setPadding(0, dp(8), 0, 0)
+                setPadding(0, dp(10), 0, 0)
             }
-            row.addView(
+            actions.addView(
                 MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
                     text = "Use my position"
+                    layoutParams = LinearLayout.LayoutParams(
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f,
+                    ).apply { marginEnd = dp(6) }
                     setOnClickListener { fillFromReal() }
                 }
             )
-            row.addView(
+            actions.addView(
                 MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                    text = "Save as favourite"
+                    text = "Save favourite"
                     layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ).apply { marginStart = dp(8) }
+                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f,
+                    ).apply { marginStart = dp(6) }
                     setOnClickListener {
                         if (spoof.label.isBlank()) {
                             toast("Give it a name first.")
@@ -708,7 +729,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             )
-            addView(row)
+            addView(actions)
         }
 
         content.addView(
@@ -848,24 +869,100 @@ class MainActivity : AppCompatActivity() {
         render()
     }
 
-    private fun valueField(label: String, value: String, onChange: (String) -> Unit): View {
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(6), 0, dp(2))
-        }
-        box.addView(text(label, 12f, cOnSurfaceVar))
-        box.addView(EditText(this).apply {
+    private fun valueField(
+        label: String,
+        value: String,
+        numeric: Boolean = false,
+        imeSearch: Boolean = false,
+        onSearch: (() -> Unit)? = null,
+        onChange: (String) -> Unit,
+    ): View {
+        val themed = android.view.ContextThemeWrapper(
+            this,
+            MR.style.Widget_Material3_TextInputLayout_OutlinedBox,
+        )
+        val field = com.google.android.material.textfield.TextInputEditText(themed).apply {
             setText(value)
             setSingleLine()
-            setTextColor(cOnSurface)
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            if (numeric) {
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER or
+                    android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL or
+                    android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+            }
+            if (imeSearch) {
+                imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+                setOnEditorActionListener { _, actionId, _ ->
+                    if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                        onSearch?.invoke()
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
             addTextChangedListener(object : TextWatcher {
                 override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
                 override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
                 override fun afterTextChanged(s: Editable?) = onChange(s?.toString().orEmpty())
             })
+        }
+        return com.google.android.material.textfield.TextInputLayout(themed).apply {
+            hint = label
+            isHintEnabled = true
+            addView(field)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(8) }
+        }
+    }
+
+    private fun sideBySide(left: View, right: View): View {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        left.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            .apply { marginEnd = dp(6); topMargin = dp(8) }
+        right.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            .apply { marginStart = dp(6); topMargin = dp(8) }
+        row.addView(left)
+        row.addView(right)
+        return row
+    }
+
+    private fun decimal(raw: String): String? =
+        raw.trim().replace(',', '.').takeIf { it.isNotEmpty() && it != "-" && it != "." }
+
+    private fun hideKeyboard() {
+        val imm = getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+        runCatching { imm?.hideSoftInputFromWindow(window.decorView.windowToken, 0) }
+    }
+
+    private fun resultRow(title: String, sub: String, onPick: () -> Unit): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(14), dp(12), dp(14))
+            val outValue = android.util.TypedValue()
+            context.theme.resolveAttribute(
+                android.R.attr.selectableItemBackground, outValue, true,
+            )
+            setBackgroundResource(outValue.resourceId)
+            isClickable = true
+            setOnClickListener { onPick() }
+        }
+        row.addView(ImageView(this).apply {
+            setImageResource(R.drawable.ic_status)
+            imageTintList = android.content.res.ColorStateList.valueOf(cPrimary)
+            layoutParams = LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(14) }
         })
-        return box
+        val texts = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        texts.addView(text(title, 15f, cOnSurface))
+        texts.addView(text(sub, 12f, cOnSurfaceVar))
+        row.addView(texts)
+        return row
     }
 
     // ---------------------------------------------------------------- hiding

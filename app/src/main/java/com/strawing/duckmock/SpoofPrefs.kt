@@ -10,7 +10,8 @@ data class SpoofTarget(
     val jitterMetres: Float = 3f,
     val label: String = "",
 ) {
-    fun pretty(): String = String.format("%.6f, %.6f", latitude, longitude)
+    fun pretty(): String =
+        String.format(java.util.Locale.ROOT, "%.6f, %.6f", latitude, longitude)
 }
 
 object SpoofPrefs {

@@ -18,7 +18,8 @@ object Geo {
             address.locality,
             address.countryName,
         ).distinct()
-        return parts.joinToString(", ").ifBlank { "%.5f, %.5f".format(address.latitude, address.longitude) }
+        return parts.joinToString(", ")
+            .ifBlank { "%.5f, %.5f".format(Locale.ROOT, address.latitude, address.longitude) }
     }
 
     fun search(context: Context, query: String, onResult: (List<Address>, String?) -> Unit) {
