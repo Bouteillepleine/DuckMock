@@ -105,7 +105,7 @@ object SystemServerPart {
                     .getOrDefault(0)
             } else 0
 
-            val grant = if (config.grantMockOp) {
+            val grant = if (appOps > 0) {
                 runCatching { AppOpsPart.armGrant() }
                     .onFailure { Logx.e("grant path failed to arm", it) }
                     .getOrDefault(0)

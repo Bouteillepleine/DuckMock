@@ -3,6 +3,9 @@ package com.strawing.duckmock
 import android.content.Intent
 import android.graphics.Typeface
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.widget.EditText
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
@@ -140,6 +143,7 @@ class MainActivity : AppCompatActivity() {
                 live = state
                 records = recs
                 snap?.config?.let { config = it }
+                if (!loaded) spoof = SpoofPrefs.target(this)
                 loaded = true
                 render()
             }
@@ -172,6 +176,7 @@ class MainActivity : AppCompatActivity() {
         content.removeAllViews()
         renderHeader()
         when (tab) {
+            R.id.tab_spoof -> renderSpoof()
             R.id.tab_hiding -> renderHiding()
             R.id.tab_apps -> renderApps()
             R.id.tab_log -> renderLog()
@@ -533,6 +538,223 @@ class MainActivity : AppCompatActivity() {
             else if (selfTest != null) append(" Self-test: $selfTest.")
         }
         return banner("Active", detail, cPrimaryCont, cOnPrimaryCont)
+    }
+
+    // -------------------------------------------------------------- position
+
+    private var spoof = SpoofTarget()
+
+    private fun renderSpoof() {
+        val running = SpoofPrefs.running(this)
+        content.addView(
+            if (running) {
+                banner(
+                    "Spoofing",
+                    "Every app is told you are at ${spoof.label.ifBlank { spoof.pretty() }}.",
+                    cPrimaryCont,
+                    cOnPrimaryCont,
+                )
+            } else {
+                banner(
+                    "Not spoofing",
+                    "Your real position is being reported.",
+                    cCard,
+                    cOnSurfaceVar,
+                )
+            }
+        )
+
+        card("Where to be") {
+            addView(valueField("Latitude", spoof.latitude.toString()) {
+                it.toDoubleOrNull()?.let { v -> spoof = spoof.copy(latitude = v) }
+            })
+            addView(valueField("Longitude", spoof.longitude.toString()) {
+                it.toDoubleOrNull()?.let { v -> spoof = spoof.copy(longitude = v) }
+            })
+            addView(valueField("Altitude (m)", spoof.altitude.toString()) {
+                it.toDoubleOrNull()?.let { v -> spoof = spoof.copy(altitude = v) }
+            })
+            addView(valueField("Accuracy (m)", spoof.accuracy.toString()) {
+                it.toFloatOrNull()?.let { v -> spoof = spoof.copy(accuracy = v) }
+            })
+            addView(valueField("Wander (m)", spoof.jitterMetres.toString()) {
+                it.toFloatOrNull()?.let { v -> spoof = spoof.copy(jitterMetres = v) }
+            })
+            addView(
+                text(
+                    "A position that never moves by a single centimetre is a tell in itself. Wander adds a small random drift on each update; set it to 0 to stand perfectly still.",
+                    12f,
+                    cOnSurfaceVar,
+                )
+            )
+            addView(valueField("Name (optional)", spoof.label) { spoof = spoof.copy(label = it) })
+            val row = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, dp(8), 0, 0)
+            }
+            row.addView(
+                MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
+                    text = "Use my position"
+                    setOnClickListener { fillFromReal() }
+                }
+            )
+            row.addView(
+                MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
+                    text = "Save as favourite"
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply { marginStart = dp(8) }
+                    setOnClickListener {
+                        if (spoof.label.isBlank()) {
+                            toast("Give it a name first.")
+                        } else {
+                            SpoofPrefs.addFavourite(this@MainActivity, spoof)
+                            render()
+                        }
+                    }
+                }
+            )
+            addView(row)
+        }
+
+        content.addView(
+            MaterialButton(this).apply {
+                text = if (running) "Stop" else "Start"
+                layoutParams = LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = dp(12) }
+                setOnClickListener { if (running) stopSpoof() else startSpoof() }
+            }
+        )
+
+        val favourites = SpoofPrefs.favourites(this)
+        if (favourites.isNotEmpty()) {
+            card("Favourites") {
+                for (fav in favourites) {
+                    val row = LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(0, dp(6), 0, dp(6))
+                    }
+                    val labels = LinearLayout(this@MainActivity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        layoutParams =
+                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                    }
+                    labels.addView(text(fav.label, 15f, cOnSurface))
+                    labels.addView(text(fav.pretty(), 12f, cOnSurfaceVar))
+                    labels.setOnClickListener {
+                        spoof = fav
+                        SpoofPrefs.setTarget(this@MainActivity, fav)
+                        render()
+                    }
+                    row.addView(labels)
+                    row.addView(
+                        MaterialButton(
+                            this@MainActivity,
+                            null,
+                            MR.attr.materialButtonOutlinedStyle,
+                        ).apply {
+                            text = "Remove"
+                            setOnClickListener {
+                                SpoofPrefs.removeFavourite(this@MainActivity, fav.label)
+                                render()
+                            }
+                        }
+                    )
+                    addView(row)
+                }
+            }
+        }
+
+        card("How this works") {
+            addView(
+                text(
+                    "DuckMock registers itself as a location provider and pushes your chosen position once a second. It grants itself the mock-location permission through its own app-ops gate, so the developer-options picker stays empty, and it strips the mock marker from the positions it produces — so apps see an ordinary GPS fix.",
+                    13f,
+                    cOnSurfaceVar,
+                )
+            )
+            addView(
+                text(
+                    "It does not touch GNSS itself: an app that watches the satellite list can still notice a fix with no satellites behind it.",
+                    12f,
+                    cOnSurfaceVar,
+                )
+            )
+        }
+    }
+
+    private fun startSpoof() {
+        val missing = arrayOf(
+            android.Manifest.permission.ACCESS_FINE_LOCATION,
+            android.Manifest.permission.ACCESS_COARSE_LOCATION,
+        ).filter {
+            checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) {
+            requestPermissions(missing.toTypedArray(), 7)
+            return
+        }
+        SpoofPrefs.setTarget(this, spoof)
+        runCatching { SpoofService.start(this) }
+            .onFailure { toast("Could not start: ${it.message}") }
+        window.decorView.postDelayed({ render(); reload() }, 1500)
+    }
+
+    private fun stopSpoof() {
+        SpoofService.stop(this)
+        window.decorView.postDelayed({ render(); reload() }, 700)
+    }
+
+    private fun fillFromReal() {
+        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(
+                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
+                8,
+            )
+            return
+        }
+        val lm = getSystemService(android.location.LocationManager::class.java)
+        val real = SpoofService.PROVIDERS.plus("fused")
+            .asSequence()
+            .mapNotNull { runCatching { lm?.getLastKnownLocation(it) }.getOrNull() }
+            .firstOrNull()
+        if (real == null) {
+            toast("No recent fix to copy. Open a map app first.")
+            return
+        }
+        spoof = spoof.copy(
+            latitude = real.latitude,
+            longitude = real.longitude,
+            altitude = real.altitude,
+        )
+        SpoofPrefs.setTarget(this, spoof)
+        render()
+    }
+
+    private fun valueField(label: String, value: String, onChange: (String) -> Unit): View {
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(6), 0, dp(2))
+        }
+        box.addView(text(label, 12f, cOnSurfaceVar))
+        box.addView(EditText(this).apply {
+            setText(value)
+            setSingleLine()
+            setTextColor(cOnSurface)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) = Unit
+                override fun afterTextChanged(s: Editable?) = onChange(s?.toString().orEmpty())
+            })
+        })
+        return box
     }
 
     // ---------------------------------------------------------------- hiding

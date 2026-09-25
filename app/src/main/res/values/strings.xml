@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">DuckMock</string>
     <string name="tab_status">Status</string>
+    <string name="tab_spoof">Position</string>
     <string name="tab_hiding">Hiding</string>
     <string name="tab_apps">Apps</string>
     <string name="tab_log">Log</string>
