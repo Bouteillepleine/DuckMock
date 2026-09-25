@@ -1,5 +1,6 @@
 MODDIR=${0%/*}
 LIMIT=150
+SETTLE=180
 
 i=0
 while [ "$(getprop sys.boot_completed)" != "1" ]; do
@@ -14,8 +15,8 @@ while [ "$(getprop sys.boot_completed)" != "1" ]; do
     sleep 1
 done
 
-sleep 30
+sleep "$SETTLE"
 rm -f "$MODDIR/boot_attempts"
-log -t DuckMock "boot completed, attempt counter cleared"
+log -t DuckMock "up for ${SETTLE}s, attempt counter cleared"
 
 sh "$MODDIR/describe.sh" 2>/dev/null

@@ -1,6 +1,7 @@
 package com.strawing.duckmock.zygote
 
 import android.os.SystemClock
+import com.strawing.duckmock.common.Config
 import com.strawing.duckmock.zygote.service.MockService
 import com.strawing.duckmock.zygote.util.Logx
 import com.strawing.duckmock.zygote.util.ModuleConfig
@@ -10,6 +11,7 @@ object SystemServerPart {
 
     private const val SETTLE_MS = 5000L
     private const val BOOT_WAIT_PASSES = 600
+    private const val MODULE_LIB_PREFIX = "/data/adb/modules/"
 
     @Volatile
     var service: MockService? = null
@@ -27,12 +29,32 @@ object SystemServerPart {
         thread(name = "duckmock-arm", isDaemon = true) { armAfterBoot() }
     }
 
+    fun coResidentModules(): List<String> = runCatching {
+        java.io.File("/proc/self/maps").readLines()
+            .mapNotNull { line ->
+                val at = line.indexOf(MODULE_LIB_PREFIX)
+                if (at < 0 || !line.endsWith(".so")) return@mapNotNull null
+                line.substring(at + MODULE_LIB_PREFIX.length).substringBefore('/')
+            }
+            .filter { it.isNotEmpty() && it != Config.MODULE_ID }
+            .distinct()
+    }.getOrDefault(emptyList())
+
     private fun armAfterBoot() {
         if (!waitForBootCompleted()) {
             Logx.e("boot never completed, nothing armed")
             return
         }
         Thread.sleep(SETTLE_MS)
+
+        val neighbours = coResidentModules()
+        if (neighbours.isEmpty()) {
+            Logx.i("no other module library is mapped into system_server")
+        } else {
+            Logx.e("other module libraries are mapped into system_server: $neighbours")
+            Logx.e("each one carrying its own inline hooker will fight over the same ART code")
+        }
+
         val config = ModuleConfig.config
 
         val settings = runCatching { SettingsPart.arm() }
