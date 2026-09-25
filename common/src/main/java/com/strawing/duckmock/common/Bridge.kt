@@ -1,0 +1,32 @@
+package com.strawing.duckmock.common
+
+object Bridge {
+    const val URI = "content://settings/secure"
+    const val METHOD = "duckmock_get_service"
+    const val ARG = "service"
+    const val KEY_BINDER = "binder"
+
+    const val STATE_VERSION = "version"
+    const val STATE_LOCATION_HOOKS = "locationHooks"
+    const val STATE_SETTINGS_HOOKS = "settingsHooks"
+    const val STATE_APPOPS_HOOKS = "appOpsHooks"
+    const val STATE_INSTALLED_AT = "installedAt"
+    const val STATE_OP_CODE = "opCode"
+    const val STATE_PAUSED = "paused"
+    const val STATE_HIDE_LOCATION_FLAG = "hideLocationFlag"
+    const val STATE_NORMALIZE_PROVIDER = "normalizeProvider"
+    const val STATE_HIDE_SETTINGS_KEY = "hideSettingsKey"
+    const val STATE_COVER_QUERY = "coverQueryPath"
+    const val STATE_HIDE_APP_OPS = "hideAppOps"
+    const val STATE_GRANT_MOCK_OP = "grantMockOp"
+    const val STATE_VERBOSE = "verboseLog"
+    const val STATE_SPOOFERS = "spoofers"
+    const val STATE_EXEMPT = "exempt"
+    const val STATE_CLEARED = "cleared"
+    const val STATE_TOUCHED_APPS = "touchedApps"
+
+    const val REC_UID = "uid"
+    const val REC_COUNT = "count"
+    const val REC_LAST = "lastMs"
+    const val REC_KINDS = "kinds"
+}
