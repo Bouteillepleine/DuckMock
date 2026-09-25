@@ -22,6 +22,12 @@ object Probe {
         out.add("SETTINGS — secure/$KEY")
         settings(context.contentResolver, out)
         out.add("")
+        out.add("SETTINGS — what DuckUSB hides (tells us whose hook survived)")
+        for (key in arrayOf("adb_enabled", "development_settings_enabled")) {
+            val v = runCatching { Settings.Global.getString(context.contentResolver, key) }
+            out.add("  $key".padEnd(23) + "= ${describe(v)}")
+        }
+        out.add("")
         out.add("APP-OPS — $OPSTR")
         appOps(context, out)
         out.add("")

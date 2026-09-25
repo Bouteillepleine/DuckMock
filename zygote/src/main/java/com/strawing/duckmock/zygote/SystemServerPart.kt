@@ -14,6 +14,7 @@ object SystemServerPart {
     private const val SETTLE_MS = 20000L
     private const val BOOT_WAIT_PASSES = 600
     private const val MODULE_LIB_PREFIX = "/data/adb/modules/"
+    private const val REPORT_PATH = "/data/system/duckmock_report.txt"
 
     @Volatile
     var service: MockService? = null
@@ -85,11 +86,21 @@ object SystemServerPart {
                     .getOrDefault(0)
             } else 0
 
-            Logx.i(
-                "armed: engine=${XHook.engineMode()} location=$location " +
-                    "(${LocationPart.verdict()}) settings=$settings appops=$appOps"
-            )
+            val summary = "armed: engine=${XHook.engineMode()} location=$location " +
+                "(${LocationPart.verdict()}) settings=$settings appops=$appOps " +
+                "service=${if (service != null) "up" else "missing"} " +
+                "provider=${SettingsPart.providerFound} neighbours=$neighbours"
+            Logx.i(summary)
+            report(summary)
         }
+    }
+
+    private fun report(summary: String) {
+        runCatching {
+            val stamp = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+                .format(java.util.Date())
+            java.io.File(REPORT_PATH).writeText("$stamp  $summary\n")
+        }.onFailure { Logx.e("could not write $REPORT_PATH", it) }
     }
 
     private fun waitForBootCompleted(): Boolean {

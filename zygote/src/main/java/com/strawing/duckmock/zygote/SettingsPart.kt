@@ -20,6 +20,10 @@ object SettingsPart {
         private set
 
     @Volatile
+    var providerFound = false
+        private set
+
+    @Volatile
     var spoofed = 0
         private set
 
@@ -34,6 +38,7 @@ object SettingsPart {
             Logx.e("settings provider not found, the settings key stays visible")
             return 0
         }
+        providerFound = true
         val context: Context? = runCatching { provider.context }.getOrNull()
         if (context == null) {
             Logx.e("settings provider has no context")
