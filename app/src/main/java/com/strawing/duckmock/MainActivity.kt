@@ -303,25 +303,61 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } else {
-            card("The module is not answering") {
-                addView(
-                    text(
-                        "Nothing is hiding anything right now. One of these is true:",
-                        14f,
-                        cOnSurface,
-                    )
-                )
-                addView(text("•  it has not been flashed, or the phone has not rebooted since", 13f, cOnSurfaceVar))
-                addView(text("•  it is still arming — that happens about 20 seconds after boot", 13f, cOnSurfaceVar))
-                addView(text("•  the kill switch is on, or every switch on the Hiding tab is off", 13f, cOnSurfaceVar))
-                val snap = snapshot
-                if (snap?.rootAvailable == true) {
+            val report = armed()
+            if (report != null) {
+                card("What the module reported when it armed") {
+                    addView(infoRow("Location marker", hookLine(report["location"]?.toIntOrNull() ?: 0)))
+                    addView(infoRow("Self-test", report["verdict"] ?: "unknown"))
+                    addView(infoRow("App-ops gate", hookLine(report["appops"]?.toIntOrNull() ?: 0)))
+                    addView(infoRow("Settings provider", hookLine(report["settings"]?.toIntOrNull() ?: 0)))
                     addView(
                         infoRow(
-                            "On disk",
-                            if (snap.moduleInstalled) "installed" else "not installed",
+                            "Hook engine",
+                            when (report["engine"]) {
+                                "own" -> "started by DuckMock"
+                                "adopted" -> "borrowed from another module"
+                                else -> "not started"
+                            },
                         )
                     )
+                    addView(infoRow("Armed at", report["stamp"] ?: "—"))
+                }
+                if ((report["settings"]?.toIntOrNull() ?: 0) == 0) {
+                    card("Why this screen is not live") {
+                        addView(
+                            text(
+                                "The manager talks to the module through the settings provider, and another module hooked that method first. Only one hook per method is allowed, so the live view is unavailable while that module is active.",
+                                13f,
+                                cOnSurfaceVar,
+                            )
+                        )
+                        addView(
+                            text(
+                                "Hiding is unaffected — the numbers above are what the module actually installed.",
+                                13f,
+                                cOnSurface,
+                            )
+                        )
+                    }
+                }
+            } else {
+                card("The module is not answering") {
+                    addView(
+                        text(
+                            "Nothing is hiding anything right now. One of these is true:",
+                            14f,
+                            cOnSurface,
+                        )
+                    )
+                    addView(text("•  it has not been flashed, or the phone has not rebooted since", 13f, cOnSurfaceVar))
+                    addView(text("•  it is still arming — that happens about 20 seconds after boot", 13f, cOnSurfaceVar))
+                    addView(text("•  the kill switch is on, or every switch on the Hiding tab is off", 13f, cOnSurfaceVar))
+                }
+            }
+            val snap = snapshot
+            if (snap?.rootAvailable == true) {
+                card("On disk") {
+                    addView(infoRow("Module", if (snap.moduleInstalled) "installed" else "not installed"))
                     addView(infoRow("Kill switch", if (snap.hooksKilled) "on" else "off"))
                 }
             }
@@ -396,6 +432,17 @@ class MainActivity : AppCompatActivity() {
     private fun hookLine(count: Int): String =
         if (count == 0) "not armed" else "$count hook${if (count == 1) "" else "s"}"
 
+    private fun armed(): Map<String, String>? {
+        val line = snapshot?.armReport?.lineSequence()?.lastOrNull { it.contains("armed:") } ?: return null
+        val out = HashMap<String, String>()
+        out["stamp"] = line.substringBefore("  armed:").trim()
+        Regex("(\\w+)=([^\\s]+)").findAll(line.substringAfter("armed:")).forEach {
+            out[it.groupValues[1]] = it.groupValues[2]
+        }
+        Regex("\\(([a-z]+)\\)").find(line)?.let { out["verdict"] = it.groupValues[1] }
+        return out.takeIf { it.containsKey("location") }
+    }
+
     private fun verdictBanner(): View {
         val snap = snapshot
         val state = live
@@ -408,6 +455,16 @@ class MainActivity : AppCompatActivity() {
             )
         }
         if (state == null) {
+            val report = armed()
+            val locationHooks = report?.get("location")?.toIntOrNull() ?: 0
+            if (locationHooks > 0) {
+                return banner(
+                    "Active",
+                    "Hiding the mock flag from every app. The live view below is unavailable, but the module is armed.",
+                    cPrimaryCont,
+                    cOnPrimaryCont,
+                )
+            }
             return banner(
                 "Not running",
                 "system_server is not answering, so nothing is being hidden.",

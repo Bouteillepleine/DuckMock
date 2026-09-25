@@ -24,6 +24,7 @@ object Root {
         val zygisk: String,
         val mockLocationSetting: String?,
         val mockOpHolders: List<String>,
+        val armReport: String? = null,
     )
 
     fun warm() {
@@ -38,7 +39,7 @@ object Root {
 
     fun snapshot(): Snapshot {
         if (!available()) {
-            return Snapshot(false, false, false, null, null, "unknown", null, emptyList())
+            return Snapshot(false, false, false, null, null, "unknown", null, emptyList(), null)
         }
         val script = buildString {
             append("MD=${Config.MODULE_DIR}\n")
@@ -51,12 +52,14 @@ object Root {
             append("echo \"secure=\$(settings get secure ${Config.MOCK_LOCATION_KEY} 2>/dev/null)\"\n")
             append("echo '#holders'\n")
             append("cmd appops query-op ${Config.OPSTR_MOCK_LOCATION} allow 2>/dev/null\n")
+            append("echo '#report'\n")
+            append("cat /data/system/duckmock_report.txt 2>/dev/null\n")
             append("echo '#config'\n")
             append("cat ${Config.CONFIG_FILE} 2>/dev/null\n")
         }
         val result = exec(script)
         if (!result.isSuccess && result.out.isEmpty()) {
-            return Snapshot(false, false, false, null, null, "unknown", null, emptyList())
+            return Snapshot(false, false, false, null, null, "unknown", null, emptyList(), null)
         }
 
         var installed = false
@@ -66,6 +69,7 @@ object Root {
         var secure: String? = null
         val holders = ArrayList<String>()
         val configText = StringBuilder()
+        val reportText = StringBuilder()
         var section = ""
 
         for (raw in result.out) {
@@ -80,6 +84,7 @@ object Root {
                         holders.add(line)
                     }
                 }
+                "#report" -> reportText.append(raw).append('\n')
                 "#config" -> configText.append(raw).append('\n')
                 else -> when {
                     line == "installed=1" -> installed = true
@@ -104,6 +109,7 @@ object Root {
             zygisk = zygisk ?: "unknown",
             mockLocationSetting = secure,
             mockOpHolders = holders,
+            armReport = reportText.toString().trim().takeIf { it.isNotBlank() },
         )
     }
 
