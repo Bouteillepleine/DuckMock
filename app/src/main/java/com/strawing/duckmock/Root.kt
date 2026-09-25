@@ -37,6 +37,9 @@ object Root {
     }
 
     fun snapshot(): Snapshot {
+        if (!available()) {
+            return Snapshot(false, false, false, null, null, "unknown", null, emptyList())
+        }
         val script = buildString {
             append("MD=${Config.MODULE_DIR}\n")
             append("[ -d \$MD ] && echo 'installed=1' || echo 'installed=0'\n")

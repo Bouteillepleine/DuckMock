@@ -1,6 +1,7 @@
 package com.strawing.duckprobe
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.location.Location
@@ -14,11 +15,8 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 
-class ProbeActivity : AppCompatActivity(), LocationListener {
+class ProbeActivity : Activity(), LocationListener {
 
     private lateinit var output: TextView
     private lateinit var liveLine: TextView
@@ -66,18 +64,20 @@ class ProbeActivity : AppCompatActivity(), LocationListener {
             )
         })
 
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                ),
-                1,
-            )
-        }
+        val missing = arrayOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        ).filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isNotEmpty()) requestPermissions(missing.toTypedArray(), 1)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        refresh()
     }
 
     override fun onResume() {
@@ -91,14 +91,15 @@ class ProbeActivity : AppCompatActivity(), LocationListener {
     }
 
     private fun refresh() {
-        val lines = Probe.run(this)
+        val lines = runCatching { Probe.run(this) }
+            .getOrElse { listOf("probe threw ${it.javaClass.name}: ${it.message}") }
         output.text = lines.joinToString("\n")
         for (line in lines) Log.i("DuckProbe", line)
     }
 
     private fun startListening() {
         if (listening) return
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED
         ) {
             liveLine.text = "live: location permission not granted"
