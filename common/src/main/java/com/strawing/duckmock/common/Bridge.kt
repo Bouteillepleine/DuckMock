@@ -12,6 +12,7 @@ object Bridge {
     const val STATE_APPOPS_HOOKS = "appOpsHooks"
     const val STATE_INSTALLED_AT = "installedAt"
     const val STATE_OP_CODE = "opCode"
+    const val STATE_ENGINE = "engine"
     const val STATE_PAUSED = "paused"
     const val STATE_HIDE_LOCATION_FLAG = "hideLocationFlag"
     const val STATE_NORMALIZE_PROVIDER = "normalizeProvider"

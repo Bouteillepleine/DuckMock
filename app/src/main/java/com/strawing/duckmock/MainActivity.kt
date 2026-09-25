@@ -277,6 +277,16 @@ class MainActivity : AppCompatActivity() {
                 addView(infoRow("Settings provider", hookLine(state.getInt(Bridge.STATE_SETTINGS_HOOKS))))
                 addView(infoRow("App-ops gate", hookLine(state.getInt(Bridge.STATE_APPOPS_HOOKS))))
                 addView(infoRow("Mock-location op", "#${state.getInt(Bridge.STATE_OP_CODE)}"))
+                addView(
+                    infoRow(
+                        "Hook engine",
+                        when (state.getString(Bridge.STATE_ENGINE)) {
+                            "own" -> "started by DuckMock"
+                            "adopted" -> "borrowed from another module"
+                            else -> "not started"
+                        },
+                    )
+                )
                 addView(infoRow("Apps touched", "${state.getInt(Bridge.STATE_TOUCHED_APPS)}"))
             }
             card("Since this boot") {

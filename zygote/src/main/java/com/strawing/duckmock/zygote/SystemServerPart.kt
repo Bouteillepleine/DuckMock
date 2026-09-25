@@ -3,6 +3,7 @@ package com.strawing.duckmock.zygote
 import android.os.SystemClock
 import com.strawing.duckmock.common.Config
 import com.strawing.duckmock.zygote.hook.InitLock
+import com.strawing.duckmock.zygote.hook.XHook
 import com.strawing.duckmock.zygote.service.MockService
 import com.strawing.duckmock.zygote.util.Logx
 import com.strawing.duckmock.zygote.util.ModuleConfig
@@ -85,8 +86,8 @@ object SystemServerPart {
             } else 0
 
             Logx.i(
-                "armed: location=$location (${LocationPart.verdict()}) " +
-                    "settings=$settings appops=$appOps"
+                "armed: engine=${XHook.engineMode()} location=$location " +
+                    "(${LocationPart.verdict()}) settings=$settings appops=$appOps"
             )
         }
     }

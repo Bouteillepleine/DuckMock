@@ -10,6 +10,7 @@ import com.strawing.duckmock.common.Config
 import com.strawing.duckmock.zygote.AppOpsPart
 import com.strawing.duckmock.zygote.LocationPart
 import com.strawing.duckmock.zygote.SettingsPart
+import com.strawing.duckmock.zygote.hook.XHook
 import com.strawing.duckmock.zygote.Targets
 import com.strawing.duckmock.zygote.util.Logx
 import com.strawing.duckmock.zygote.util.ModuleConfig
@@ -82,6 +83,7 @@ class MockService(private val context: Context) : IMockService.Stub() {
             putInt(Bridge.STATE_APPOPS_HOOKS, AppOpsPart.hookCount)
             putLong(Bridge.STATE_INSTALLED_AT, installedAtRealtimeMs)
             putInt(Bridge.STATE_OP_CODE, AppOpsPart.opCode)
+            putString(Bridge.STATE_ENGINE, XHook.engineMode())
             putBoolean(Bridge.STATE_PAUSED, c.paused)
             putBoolean(Bridge.STATE_HIDE_LOCATION_FLAG, c.hideLocationFlag)
             putBoolean(Bridge.STATE_NORMALIZE_PROVIDER, c.normalizeProvider)
