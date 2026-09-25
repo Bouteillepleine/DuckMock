@@ -210,9 +210,11 @@ class MainActivity : AppCompatActivity() {
     private fun headerSubtitle(): String {
         if (!loaded) return "reading the device…"
         val version = snapshot?.moduleVersion ?: Config.MODULE_VERSION
+        val armedHooks = armed()?.get("location")?.toIntOrNull() ?: 0
         val where = when {
             live != null -> "running in system_server"
-            snapshot?.moduleInstalled == true -> "installed, not answering"
+            armedHooks > 0 -> "armed in system_server"
+            snapshot?.moduleInstalled == true -> "installed, not armed"
             snapshot?.rootAvailable == true -> "not installed"
             else -> "no live module"
         }
@@ -671,14 +673,26 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderLog() {
         if (records.isEmpty()) {
-            card("Nothing recorded") {
-                addView(
-                    text(
-                        "The module notes each app it lied to, and each location it cleaned. Nothing yet on this boot.",
-                        13f,
-                        cOnSurfaceVar,
+            if (live == null && (armed()?.get("location")?.toIntOrNull() ?: 0) > 0) {
+                card("The log cannot be read") {
+                    addView(
+                        text(
+                            "The module is armed and hiding, but the channel this app reads its log through is held by another module. The counters exist inside system_server, this screen just cannot reach them.",
+                            13f,
+                            cOnSurfaceVar,
+                        )
                     )
-                )
+                }
+            } else {
+                card("Nothing recorded") {
+                    addView(
+                        text(
+                            "The module notes each app it lied to, and each location it cleaned. Nothing yet on this boot.",
+                            13f,
+                            cOnSurfaceVar,
+                        )
+                    )
+                }
             }
             return
         }
