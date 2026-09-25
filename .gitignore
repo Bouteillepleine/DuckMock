@@ -6,3 +6,4 @@ key.properties
 .idea/
 .cxx/
 .DS_Store
+!ci/ci-keystore.jks

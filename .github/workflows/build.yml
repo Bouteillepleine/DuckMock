@@ -54,27 +54,43 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      - name: Decode signing keystore
-        # Never in the repo. A checkout without the secrets still builds, just unsigned.
+      - name: Choose a signing key
+        # Android refuses to install an unsigned APK outright, so CI always signs. The release
+        # key is used when the secrets are set; otherwise ci/ci-keystore.jks, a throwaway
+        # committed to this private repo whose only job is to give every CI build the SAME
+        # signature, so one install can be upgraded by the next. Its password is deliberately
+        # not a secret: the key protects nothing.
         env:
           KEYSTORE_B64: ${{ secrets.DUCKMOCK_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.DUCKMOCK_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.DUCKMOCK_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.DUCKMOCK_KEY_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_B64" ]; then
+          set -euo pipefail
+          if [ -n "${KEYSTORE_B64:-}" ]; then
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/duckmock-release.jks"
-            echo "DUCKMOCK_STORE_FILE=$RUNNER_TEMP/duckmock-release.jks" >> "$GITHUB_ENV"
-            echo "signing keystore decoded"
+            {
+              echo "DUCKMOCK_STORE_FILE=$RUNNER_TEMP/duckmock-release.jks"
+              echo "DUCKMOCK_STORE_PASSWORD=$RELEASE_STORE_PASSWORD"
+              echo "DUCKMOCK_KEY_ALIAS=$RELEASE_KEY_ALIAS"
+              echo "DUCKMOCK_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+            echo "signing with the release key"
           else
-            echo "::warning::No DUCKMOCK_KEYSTORE_BASE64 secret; the manager APK will be unsigned."
+            test -f ci/ci-keystore.jks
+            {
+              echo "DUCKMOCK_STORE_FILE=ci/ci-keystore.jks"
+              echo "DUCKMOCK_STORE_PASSWORD=duckmock-ci"
+              echo "DUCKMOCK_KEY_ALIAS=duckmock-ci"
+              echo "DUCKMOCK_KEY_PASSWORD=duckmock-ci"
+            } >> "$GITHUB_ENV"
+            echo "::warning::No release secrets; signing with the committed CI key."
           fi
 
       - name: Build
-        env:
-          DUCKMOCK_STORE_PASSWORD: ${{ secrets.DUCKMOCK_STORE_PASSWORD }}
-          DUCKMOCK_KEY_ALIAS: ${{ secrets.DUCKMOCK_KEY_ALIAS }}
-          DUCKMOCK_KEY_PASSWORD: ${{ secrets.DUCKMOCK_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleRelease :zygote:assembleRelease :probe:assembleDebug \
+          ./gradlew :app:assembleRelease :zygote:assembleRelease :probe:assembleRelease \
             --no-daemon --stacktrace
 
       - name: Verify the module zip
@@ -121,23 +137,25 @@ jobs:
           [ "$bad" = 0 ] || exit 1
 
       - name: Stage artifacts
-        # Without the signing secrets AGP names the output app-release-unsigned.apk, so the
-        # name is discovered rather than assumed, and the log says which one was staged.
+        # Both APKs must exist under their SIGNED names. AGP appends -unsigned when no signing
+        # config applied, so a file missing here means the signing step did not take, and that
+        # is a hard failure: an unsigned APK is one Android refuses to install.
         run: |
           set -euo pipefail
-          APK=""
-          for c in app/build/outputs/apk/release/app-release.apk                    app/build/outputs/apk/release/app-release-unsigned.apk; do
-            [ -f "$c" ] && { APK="$c"; break; }
-          done
-          [ -n "$APK" ] || { echo "no manager APK was built"; ls -R app/build/outputs/apk; exit 1; }
-          case "$APK" in
-            *-unsigned.apk) echo "::warning::Staging an UNSIGNED manager APK; it cannot be installed." ;;
-            *) echo "manager APK is signed" ;;
-          esac
+          APK=app/build/outputs/apk/release/app-release.apk
+          if [ ! -f "$APK" ]; then
+            echo "the manager APK is missing or unsigned; Android cannot install that"
+            ls -R app/build/outputs/apk
+            exit 1
+          fi
           cp "$APK" ./DuckMock-manager.apk
 
-          PROBE=$(ls probe/build/outputs/apk/debug/*.apk 2>/dev/null | head -1)
-          [ -n "$PROBE" ] || { echo "no probe APK was built"; exit 1; }
+          PROBE=probe/build/outputs/apk/release/probe-release.apk
+          if [ ! -f "$PROBE" ]; then
+            echo "the probe APK is missing or unsigned"
+            ls -R probe/build/outputs/apk
+            exit 1
+          fi
           cp "$PROBE" ./DuckMock-probe.apk
 
           cp zygote/build/outputs/magisk/release/*.zip ./
