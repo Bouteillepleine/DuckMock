@@ -1100,6 +1100,7 @@ class MainActivity : AppCompatActivity() {
     // ------------------------------------------------------------------ apps
 
     private fun renderApps() {
+        renderRefused()
         card("Your spoofer") {
             addView(
                 text(
@@ -1196,7 +1197,41 @@ class MainActivity : AppCompatActivity() {
         }.getOrNull()?.takeIf { it.isNotBlank() && it != pkg } ?: pkg.substringAfterLast('.')
     }
 
-    private fun appRow(pkg: String, onRemove: () -> Unit): View {
+    private fun refusedTheOp(): List<String> {
+        val declared = config.spoofers + config.exempt
+        return records
+            .filter { it.getStringArrayList(Bridge.REC_KINDS)?.contains(Config.RECORD_APPOPS) == true }
+            .sortedByDescending { it.getLong(Bridge.REC_LAST) }
+            .map { appPackage(it.getInt(Bridge.REC_UID)) }
+            .filter { it.isNotEmpty() && !it.startsWith("uid ") && it !in declared }
+            .distinct()
+    }
+
+    private fun renderRefused() {
+        val refused = refusedTheOp()
+        if (refused.isEmpty()) return
+        card("Asked for mock location, told no") {
+            addView(
+                text(
+                    "Hiding the op from these apps is the point — a detector learns nothing. But a real spoofer cannot start either: the system refuses its test provider. If one of these is your spoofer, declare it and it alone will be told the truth.",
+                    13f,
+                    cOnSurfaceVar,
+                )
+            )
+            for (pkg in refused) {
+                addView(
+                    appRow(pkg, "Declare") {
+                        config.spoofers.add(pkg)
+                        config.grantMockOp = true
+                        persist()
+                        render()
+                    }
+                )
+            }
+        }
+    }
+
+    private fun appRow(pkg: String, action: String = "Remove", onRemove: () -> Unit): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -1215,7 +1250,7 @@ class MainActivity : AppCompatActivity() {
         row.addView(texts)
         row.addView(
             MaterialButton(this, null, MR.attr.materialButtonOutlinedStyle).apply {
-                text = "Remove"
+                text = action
                 setOnClickListener { onRemove() }
             }
         )
