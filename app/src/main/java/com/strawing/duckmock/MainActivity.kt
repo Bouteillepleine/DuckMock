@@ -215,7 +215,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun headerSubtitle(): String {
         if (!loaded) return "reading the device…"
-        val version = snapshot?.moduleVersion ?: Config.MODULE_VERSION
         val armedHooks = armed()?.get("location")?.toIntOrNull() ?: 0
         val where = when {
             live != null -> "running in system_server"
@@ -224,8 +223,14 @@ class MainActivity : AppCompatActivity() {
             snapshot?.rootAvailable == true -> "not installed"
             else -> "no live module"
         }
-        return "v$version · $where"
+        val module = snapshot?.moduleVersion
+        return if (module != null) "v$module · $where" else "manager v${managerVersion()} · $where"
     }
+
+    private fun managerVersion(): String = runCatching {
+        packageManager.getPackageInfo(packageName, 0).versionName
+    }.getOrNull() ?: "?"
+
 
     private val uidNames = HashMap<Int, String>()
     private val uidPackages = HashMap<Int, String>()

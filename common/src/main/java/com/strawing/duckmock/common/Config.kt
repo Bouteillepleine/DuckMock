@@ -3,7 +3,6 @@ package com.strawing.duckmock.common
 object Config {
     const val PKG = "com.strawing.duckmock"
     const val MODULE_ID = "duckmock"
-    const val MODULE_VERSION = "1.0.0"
 
     const val MODULE_DIR = "/data/adb/modules/$MODULE_ID"
     const val MODULE_UPDATE_DIR = "/data/adb/modules_update/$MODULE_ID"
