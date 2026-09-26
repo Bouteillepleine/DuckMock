@@ -16,7 +16,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -84,7 +84,7 @@ jobs:
               echo "DUCKMOCK_KEY_ALIAS=duckmock-ci"
               echo "DUCKMOCK_KEY_PASSWORD=duckmock-ci"
             } >> "$GITHUB_ENV"
-            echo "::warning::No release secrets; signing with the committed CI key."
+            echo "no release secrets; signing with the committed CI key, which is the intended default"
           fi
 
       - name: Build
@@ -174,7 +174,7 @@ jobs:
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
