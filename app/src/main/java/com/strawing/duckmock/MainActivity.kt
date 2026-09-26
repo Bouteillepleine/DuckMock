@@ -1202,13 +1202,23 @@ class MainActivity : AppCompatActivity() {
         }.getOrNull()?.takeIf { it.isNotBlank() && it != pkg } ?: pkg.substringAfterLast('.')
     }
 
+    private fun packageOfUid(uid: Int): String? {
+        if (uid == Config.SYSTEM_UID) return null
+        val pm = packageManager
+        val packages = runCatching { pm.getPackagesForUid(uid) }.getOrNull()
+        if (packages.isNullOrEmpty()) return null
+        return packages.firstOrNull {
+            runCatching { pm.getLaunchIntentForPackage(it) }.getOrNull() != null
+        } ?: packages.firstOrNull()
+    }
+
     private fun refusedTheOp(): List<String> {
         val declared = config.spoofers + config.exempt
         return records
             .filter { it.getStringArrayList(Bridge.REC_KINDS)?.contains(Config.RECORD_APPOPS) == true }
             .sortedByDescending { it.getLong(Bridge.REC_LAST) }
-            .map { appPackage(it.getInt(Bridge.REC_UID)) }
-            .filter { it.isNotEmpty() && !it.startsWith("uid ") && it !in declared }
+            .mapNotNull { packageOfUid(it.getInt(Bridge.REC_UID)) }
+            .filter { it !in declared && it != packageName }
             .distinct()
     }
 
@@ -1218,7 +1228,7 @@ class MainActivity : AppCompatActivity() {
         card("Asked for mock location, told no") {
             addView(
                 text(
-                    "Hiding the op from these apps is the point — a detector learns nothing. But a real spoofer cannot start either: the system refuses its test provider. If one of these is your spoofer, declare it and it alone will be told the truth.",
+                    "Hiding the op from these apps is the point — a detector learns nothing. But a real spoofer cannot start either: the system refuses its test provider. If one of these is your spoofer, declare it and it alone will be told the truth. Restart it afterwards: most of them only ask once, when they launch.",
                     13f,
                     cOnSurfaceVar,
                 )
