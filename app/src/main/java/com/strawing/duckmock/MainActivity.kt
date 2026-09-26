@@ -676,27 +676,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun renderSpoof() {
-        val running = SpoofPrefs.running(this)
+    private fun renderSpoofSwitch(running: Boolean, live: String, idle: String) {
         content.addView(
             if (running) {
-                banner(
-                    "Spoofing",
-                    "Every app is told you are at ${spoof.label.ifBlank { spoof.pretty() }}.",
-                    cPrimaryCont,
-                    cOnPrimaryCont,
-                )
+                banner("Spoofing", live, cPrimaryCont, cOnPrimaryCont)
             } else {
-                banner(
-                    "Not spoofing",
-                    "Your real position is being reported. Start to appear at " +
-                        spoof.label.ifBlank { spoof.pretty() } + ".",
-                    cCard,
-                    cOnSurfaceVar,
-                )
+                banner("Not spoofing", idle, cCard, cOnSurfaceVar)
             }
         )
-
         content.addView(
             MaterialButton(this).apply {
                 text = if (running) "Stop" else "Start"
@@ -706,6 +693,16 @@ class MainActivity : AppCompatActivity() {
                 ).apply { topMargin = dp(12) }
                 setOnClickListener { if (running) stopSpoof() else startSpoof() }
             }
+        )
+    }
+
+    private fun renderSpoof() {
+        val running = SpoofPrefs.running(this)
+        val where = spoof.label.ifBlank { spoof.pretty() }
+        renderSpoofSwitch(
+            running,
+            "Every app is told you are at $where.",
+            "Your real position is being reported. Start to appear at $where.",
         )
 
         card("Find an address") {
@@ -937,16 +934,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderJoystickTab() {
         val running = SpoofPrefs.running(this)
-        if (!running) {
-            content.addView(
-                banner(
-                    "Not spoofing",
-                    "The stick and the routes move the fake position, so start spoofing on the Position tab first.",
-                    cCard,
-                    cOnSurfaceVar,
-                )
-            )
-        }
+        val playing = RouteState.playing
+        val here = if (running) SpoofPrefs.target(this) else spoof
+        renderSpoofSwitch(
+            running,
+            when {
+                playing != null -> "Walking ${playing.name}. The stick is ignored until it ends."
+                JoyState.pushing -> "The stick is walking you from ${here.pretty()}."
+                else -> "You are at ${here.label.ifBlank { here.pretty() }}. Push the stick or play a route to move."
+            },
+            "The stick and the routes move the fake position, so start here first.",
+        )
         renderJoystick(running)
         renderRoute(running)
         renderSavedRoutes(running)
