@@ -160,6 +160,7 @@ class SpoofService : Service() {
     private fun shutDown() {
         running = false
         ticker = null
+        RouteState.stop()
         overlay.hide()
         releaseProviders()
         SpoofPrefs.setRunning(this, false)
@@ -211,31 +212,40 @@ class SpoofService : Service() {
 
     private fun advance(elapsed: Double): Boolean {
         val target = SpoofPrefs.target(this)
-        val step = Walker.step(
+        val pace = SpoofPrefs.pace(this).metresPerSecond
+        val onRoute = RouteState.playing != null
+        val step = RouteState.advance(pace, elapsed) ?: Walker.step(
             target.latitude,
             target.longitude,
             JoyState.east,
             JoyState.north,
-            SpoofPrefs.pace(this).metresPerSecond,
+            pace,
             elapsed,
         )
+        if (onRoute && RouteState.playing == null) JoyState.release()
         if (!step.moved) {
             speed = 0f
             JoyState.speed = 0f
+            RouteState.record(
+                RoutePoint(target.latitude, target.longitude, target.altitude)
+            )
             return false
         }
         bearing = step.bearing
         speed = step.speed
         JoyState.bearing = step.bearing
         JoyState.speed = step.speed
+        val altitude = step.altitude ?: target.altitude
         SpoofPrefs.setTarget(
             this,
             target.copy(
                 latitude = step.latitude,
                 longitude = step.longitude,
+                altitude = altitude,
                 label = "",
             ),
         )
+        RouteState.record(RoutePoint(step.latitude, step.longitude, altitude))
         return true
     }
 

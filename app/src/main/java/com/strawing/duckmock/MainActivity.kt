@@ -51,6 +51,10 @@ class MainActivity : AppCompatActivity() {
     private var records: List<Bundle> = emptyList()
     private var loaded = false
     private var tab = R.id.tab_status
+    private var logOpen = false
+    private var routeName = ""
+    private var exporting: Route? = null
+    private var progressTicking = false
 
     private val picker = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != RESULT_OK) return@registerForActivityResult
@@ -70,6 +74,18 @@ class MainActivity : AppCompatActivity() {
             SpoofService.showJoystick(this)
         }
         render()
+    }
+
+    private val gpxOpen = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importGpx(uri)
+    }
+
+    private val gpxSave = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/gpx+xml")
+    ) { uri ->
+        val route = exporting
+        exporting = null
+        if (uri != null && route != null) exportGpx(uri, route)
     }
 
     private val cOnSurface get() = attr(MR.attr.colorOnSurface)
@@ -119,6 +135,7 @@ class MainActivity : AppCompatActivity() {
             selectedItemId = tab
             setOnItemSelectedListener { item ->
                 tab = item.itemId
+                logOpen = false
                 render()
                 scroll.scrollTo(0, 0)
                 divider.alpha = 0f
@@ -133,6 +150,16 @@ class MainActivity : AppCompatActivity() {
             addView(nav)
         }
         setContentView(shell)
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (logOpen) {
+                    showLog(false)
+                    return
+                }
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        })
         ViewCompat.setOnApplyWindowInsetsListener(shell) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(0, bars.top, 0, bars.bottom)
@@ -188,11 +215,12 @@ class MainActivity : AppCompatActivity() {
         header.removeAllViews()
         content.removeAllViews()
         renderHeader()
-        when (tab) {
-            R.id.tab_spoof -> renderSpoof()
-            R.id.tab_hiding -> renderHiding()
-            R.id.tab_apps -> renderApps()
-            R.id.tab_log -> renderLog()
+        when {
+            logOpen -> renderLog()
+            tab == R.id.tab_spoof -> renderSpoof()
+            tab == R.id.tab_joystick -> renderJoystickTab()
+            tab == R.id.tab_hiding -> renderHiding()
+            tab == R.id.tab_apps -> renderApps()
             else -> renderStatus()
         }
     }
@@ -209,9 +237,36 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        titles.addView(text("DuckMock", 26f, cOnSurface, Typeface.BOLD))
-        titles.addView(text(headerSubtitle(), 13f, cOnSurfaceVar))
+        titles.addView(
+            text(if (logOpen) "Log" else "DuckMock", 26f, cOnSurface, Typeface.BOLD)
+        )
+        titles.addView(
+            text(
+                if (logOpen) "what the module intercepted this boot" else headerSubtitle(),
+                13f,
+                cOnSurfaceVar,
+            )
+        )
         bar.addView(titles)
+
+        if (logOpen) {
+            bar.addView(MaterialButton(this, null, MR.attr.materialIconButtonStyle).apply {
+                text = "✕"
+                contentDescription = "Close the log"
+                setTextColor(cOnSurfaceVar)
+                setOnClickListener { showLog(false) }
+            })
+        } else {
+            bar.addView(MaterialButton(this, null, MR.attr.materialIconButtonStyle).apply {
+                icon = androidx.core.content.ContextCompat.getDrawable(
+                    this@MainActivity,
+                    R.drawable.ic_log,
+                )
+                iconTint = android.content.res.ColorStateList.valueOf(cOnSurfaceVar)
+                contentDescription = getString(R.string.tab_log)
+                setOnClickListener { showLog(true) }
+            })
+        }
 
         val mode = Theming.current(this)
         bar.addView(MaterialButton(this, null, MR.attr.materialIconButtonStyle).apply {
@@ -653,8 +708,6 @@ class MainActivity : AppCompatActivity() {
             }
         )
 
-        renderJoystick(running)
-
         card("Find an address") {
             addView(
                 valueField(
@@ -873,6 +926,32 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    private fun showLog(open: Boolean) {
+        logOpen = open
+        render()
+        scroll.scrollTo(0, 0)
+        divider.alpha = 0f
+    }
+
+    // ------------------------------------------------------------- joystick
+
+    private fun renderJoystickTab() {
+        val running = SpoofPrefs.running(this)
+        if (!running) {
+            content.addView(
+                banner(
+                    "Not spoofing",
+                    "The stick and the routes move the fake position, so start spoofing on the Position tab first.",
+                    cCard,
+                    cOnSurfaceVar,
+                )
+            )
+        }
+        renderJoystick(running)
+        renderRoute(running)
+        renderSavedRoutes(running)
+    }
+
     private fun renderJoystick(running: Boolean) {
         val allowed = Settings.canDrawOverlays(this)
         val wanted = SpoofPrefs.joystick(this)
@@ -1013,6 +1092,310 @@ class MainActivity : AppCompatActivity() {
         val speed = push * SpoofPrefs.pace(this).metresPerSecond
         val bearing = (Math.toDegrees(atan2(east.toDouble(), north.toDouble())) + 360.0) % 360.0
         return String.format(Locale.ROOT, "%.1f m/s · %03.0f°", speed, bearing)
+    }
+
+    // ---------------------------------------------------------------- routes
+
+    private fun renderRoute(running: Boolean) {
+        val playing = RouteState.playing
+        card("Route") {
+            if (playing != null) {
+                addView(infoRow("Playing", playing.name))
+                addView(
+                    infoRow(
+                        "Along",
+                        "${(RouteState.progress() * 100).toInt()} % of ${playing.pretty()}",
+                    )
+                )
+                addView(
+                    MaterialButton(this@MainActivity).apply {
+                        text = "Stop the route"
+                        layoutParams = LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ).apply { topMargin = dp(10) }
+                        setOnClickListener {
+                            RouteState.stop()
+                            JoyState.release()
+                            render()
+                        }
+                    }
+                )
+                addView(
+                    text(
+                        "The stick is ignored while a route plays. The pace still sets how fast you go along it.",
+                        12f,
+                        cOnSurfaceVar,
+                    ).apply { setPadding(0, dp(10), 0, 0) }
+                )
+                scheduleProgressTick()
+            } else {
+                addView(
+                    text(
+                        "Play a saved route to walk it at the chosen pace, or record the path you walk with the stick and keep it.",
+                        13f,
+                        cOnSurfaceVar,
+                    )
+                )
+            }
+
+            addView(text("At the end", 12f, cOnSurfaceVar).apply { setPadding(0, dp(12), 0, dp(6)) })
+            addView(endingRow())
+            addView(
+                text(
+                    "Loop jumps back to the first point, which only looks natural on a route that comes home. Bounce turns round and walks it backwards.",
+                    12f,
+                    cOnSurfaceVar,
+                ).apply { setPadding(0, dp(8), 0, 0) }
+            )
+
+            addView(text("Recording", 12f, cOnSurfaceVar).apply { setPadding(0, dp(14), 0, dp(2)) })
+            if (RouteState.recording) {
+                addView(infoRow("Captured", "${RouteState.recordedCount()} points"))
+                addView(valueField("Route name", routeName) { routeName = it })
+                val actions = LinearLayout(this@MainActivity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(0, dp(10), 0, 0)
+                }
+                actions.addView(smallButton("Save", true) { saveRecording() })
+                actions.addView(
+                    smallButton("Discard", false) {
+                        RouteState.discardRecording()
+                        render()
+                    }
+                )
+                actions.addView(View(this@MainActivity).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+                })
+                addView(actions)
+            } else {
+                addView(
+                    MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
+                        text = "Record where I walk"
+                        isEnabled = running
+                        layoutParams = LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ).apply { topMargin = dp(6) }
+                        setOnClickListener {
+                            RouteState.startRecording()
+                            render()
+                        }
+                    }
+                )
+                addView(
+                    text(
+                        "One point every four metres while the position moves, whether you drive it with the stick or with another route.",
+                        12f,
+                        cOnSurfaceVar,
+                    ).apply { setPadding(0, dp(8), 0, 0) }
+                )
+            }
+        }
+    }
+
+    private fun renderSavedRoutes(running: Boolean) {
+        val routes = RouteStore.list(this)
+        card("Saved routes") {
+            if (routes.isEmpty()) {
+                addView(
+                    text(
+                        "Nothing saved yet. Record a walk, or import a GPX track from a watch, a phone or a route planner.",
+                        13f,
+                        cOnSurfaceVar,
+                    )
+                )
+            }
+            for (route in routes) addView(routeRow(route, running))
+            addView(
+                MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
+                    text = "Import a GPX file"
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply { topMargin = dp(12) }
+                    setOnClickListener {
+                        runCatching { gpxOpen.launch(arrayOf("*/*")) }
+                            .onFailure { toast("No file picker answered.") }
+                    }
+                }
+            )
+        }
+    }
+
+    private fun routeRow(route: Route, running: Boolean): View {
+        val holder = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(10), 0, dp(4))
+        }
+        holder.addView(text(route.name, 15f, cOnSurface))
+        holder.addView(text(route.pretty(), 12f, cOnSurfaceVar))
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(8), 0, 0)
+        }
+        val playing = RouteState.playing?.name == route.name
+        actions.addView(
+            smallButton(if (playing) "Playing" else "Play", true) {
+                if (!playing) playRoute(route)
+            }
+        )
+        actions.addView(smallButton("Export", false) { exportRoute(route) })
+        actions.addView(
+            smallButton("Remove", false) {
+                if (RouteState.playing?.name == route.name) RouteState.stop()
+                RouteStore.delete(this@MainActivity, route.name)
+                render()
+            }
+        )
+        holder.addView(actions)
+        return holder
+    }
+
+    private fun endingRow(): View {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (option in Ending.entries) {
+            val selected = option == RouteState.ending
+            row.addView(
+                MaterialButton(
+                    this,
+                    null,
+                    if (selected) MR.attr.materialButtonStyle else MR.attr.materialButtonOutlinedStyle,
+                ).apply {
+                    text = option.label
+                    isAllCaps = false
+                    insetTop = 0
+                    insetBottom = 0
+                    minWidth = 0
+                    minimumWidth = 0
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                    setPadding(dp(10), dp(6), dp(10), dp(6))
+                    layoutParams = LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1f,
+                    ).apply { marginEnd = dp(6) }
+                    setOnClickListener {
+                        RouteState.ending = option
+                        render()
+                    }
+                }
+            )
+        }
+        return row
+    }
+
+    private fun smallButton(label: String, filled: Boolean, onClick: () -> Unit): View =
+        MaterialButton(
+            this,
+            null,
+            if (filled) MR.attr.materialButtonStyle else MR.attr.materialButtonOutlinedStyle,
+        ).apply {
+            text = label
+            isAllCaps = false
+            insetTop = 0
+            insetBottom = 0
+            minWidth = 0
+            minimumWidth = 0
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ).apply { marginEnd = dp(6) }
+            setOnClickListener { onClick() }
+        }
+
+    private fun scheduleProgressTick() {
+        if (progressTicking) return
+        progressTicking = true
+        content.postDelayed({
+            progressTicking = false
+            if (!logOpen && tab == R.id.tab_joystick && RouteState.playing != null) render()
+        }, 2000)
+    }
+
+    private fun playRoute(route: Route) {
+        if (!route.usable) {
+            toast("That route has no length to walk.")
+            return
+        }
+        RouteState.play(route)
+        JoyState.release()
+        if (SpoofPrefs.running(this)) {
+            toast("Walking ${route.name}")
+            render()
+        } else {
+            startSpoof()
+        }
+    }
+
+    private fun saveRecording() {
+        val points = RouteState.recorded()
+        val name = routeName.trim()
+        when {
+            name.isBlank() -> toast("Give the route a name first.")
+            points.size < 2 -> toast("Not enough of a walk to save yet.")
+            else -> {
+                val route = Route(uniqueName(name), points)
+                if (RouteStore.save(this, route)) {
+                    RouteState.discardRecording()
+                    routeName = ""
+                    toast("Saved ${route.pretty()}")
+                } else {
+                    toast("Could not write the route.")
+                }
+                render()
+            }
+        }
+    }
+
+    private fun uniqueName(base: String): String {
+        if (RouteStore.named(this, base) == null) return base
+        var index = 2
+        while (RouteStore.named(this, "$base $index") != null) index++
+        return "$base $index"
+    }
+
+    private fun importGpx(uri: Uri) {
+        Thread {
+            val parsed = runCatching {
+                contentResolver.openInputStream(uri)?.use { Gpx.read(it, "Imported route") }
+            }.getOrNull()
+            runOnUiThread {
+                if (parsed == null) {
+                    toast("No track, route or waypoints in that file.")
+                    return@runOnUiThread
+                }
+                val route = Route(uniqueName(parsed.name), parsed.points)
+                if (RouteStore.save(this, route)) {
+                    toast("Imported ${route.name} · ${route.pretty()}")
+                } else {
+                    toast("Could not save the imported route.")
+                }
+                render()
+            }
+        }.apply { isDaemon = true }.start()
+    }
+
+    private fun exportRoute(route: Route) {
+        exporting = route
+        runCatching { gpxSave.launch("${route.name}.gpx") }
+            .onFailure {
+                exporting = null
+                toast("No file picker answered.")
+            }
+    }
+
+    private fun exportGpx(uri: Uri, route: Route) {
+        Thread {
+            val written = runCatching {
+                contentResolver.openOutputStream(uri)?.use { Gpx.write(route, it) } != null
+            }.getOrDefault(false)
+            runOnUiThread {
+                toast(if (written) "Exported ${route.name}" else "Could not write that file.")
+            }
+        }.apply { isDaemon = true }.start()
     }
 
     private fun askOverlay() {

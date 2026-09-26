@@ -16,6 +16,7 @@ object Walker {
         val bearing: Float,
         val speed: Float,
         val moved: Boolean,
+        val altitude: Double? = null,
     )
 
     fun step(

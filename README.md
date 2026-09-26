@@ -66,9 +66,13 @@ injection until now.
 
 ## Joystick
 
-The manager can walk the fake position instead of pinning it. A thumbstick floats over
-whatever app is in front; pushing it moves the position in that direction, and the fix then
-carries a matching `bearing` and `speed` instead of the zeroes a stationary spoof reports.
+The manager can walk the fake position instead of pinning it. The **Joystick** tab holds the
+stick and the routes; the Position tab keeps the coordinates, the address search and the
+favourites. (The log moved to the icon in the header — a bottom bar only holds five tabs.)
+
+A thumbstick floats over whatever app is in front; pushing it moves the position in that
+direction, and the fix then carries a matching `bearing` and `speed` instead of the zeroes a
+stationary spoof reports.
 
 | Control | What it does |
 |---|---|
@@ -88,6 +92,32 @@ The overlay needs `SYSTEM_ALERT_WINDOW`, which Android grants by hand. One hones
 window sitting on top of another app shows up to that app as an obscured touch
 (`MotionEvent.FLAG_WINDOW_IS_OBSCURED`) when it covers where you tap, and a few apps refuse
 input in that case. Park it to one side, or fold it away before tapping.
+
+## Routes and GPX
+
+A route is a list of points the position is walked along, at the pace you picked. Position,
+bearing and altitude are all interpolated along the leg, so a route with elevation climbs as
+you go.
+
+* **Record** captures the path you drive with the stick — one point every four metres while
+  the position moves — and saves it under a name you give it.
+* **Import a GPX file** reads `<trkpt>` first, then `<rtept>`, then `<wpt>`, taking the
+  file's own `<name>` if it has one. Anything a watch, a phone or a route planner writes
+  should load; a name that already exists is kept and the new one numbered.
+* **Export** writes a saved route back out as GPX 1.1, which round-trips.
+* **At the end** decides what happens at the last point: `Stop`, `Loop` back to the first
+  point, or `Bounce` — turn round and walk it backwards. Loop only looks natural on a route
+  that comes home, since it otherwise teleports from the last point to the first.
+
+Routes are stored as JSON under the manager's own `files/routes/`, one file per route.
+Uninstalling the manager takes them with it, so export anything that matters as GPX.
+
+While a route plays the stick is ignored, and the route releases it when it finishes. The
+route runs inside the spoof service, so stopping the spoof stops the route.
+
+Measured on the OP15 with a four-leg test track at Stroll: latitude held to the track's
+first leg while longitude advanced 4.9 m every 6 s (0.82 m/s against the 0.8 m/s pace), and
+altitude interpolated 1600.2 → 1601.0 m across the leg.
 
 ## Layout
 

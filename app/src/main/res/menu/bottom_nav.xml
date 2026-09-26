@@ -9,6 +9,10 @@
         android:icon="@drawable/ic_spoof"
         android:title="@string/tab_spoof" />
     <item
+        android:id="@+id/tab_joystick"
+        android:icon="@drawable/ic_joystick"
+        android:title="@string/tab_joystick" />
+    <item
         android:id="@+id/tab_hiding"
         android:icon="@drawable/ic_hide"
         android:title="@string/tab_hiding" />
@@ -16,8 +20,4 @@
         android:id="@+id/tab_apps"
         android:icon="@drawable/ic_apps"
         android:title="@string/tab_apps" />
-    <item
-        android:id="@+id/tab_log"
-        android:icon="@drawable/ic_log"
-        android:title="@string/tab_log" />
 </menu>
