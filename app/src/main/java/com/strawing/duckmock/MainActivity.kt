@@ -2,7 +2,10 @@ package com.strawing.duckmock
 
 import android.content.Intent
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
+import android.widget.HorizontalScrollView
 import android.text.Editable
 import android.text.TextWatcher
 import android.widget.EditText
@@ -30,6 +33,8 @@ import com.strawing.duckmock.common.MockConfig
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.atan2
+import kotlin.math.hypot
 import com.google.android.material.R as MR
 
 class MainActivity : AppCompatActivity() {
@@ -57,6 +62,13 @@ class MainActivity : AppCompatActivity() {
             AppPickerActivity.MODE_EXEMPT -> config.exempt = LinkedHashSet(picked)
         }
         persist()
+        render()
+    }
+
+    private val overlayAsk = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (SpoofPrefs.joystick(this) && Settings.canDrawOverlays(this) && SpoofPrefs.running(this)) {
+            SpoofService.showJoystick(this)
+        }
         render()
     }
 
@@ -641,6 +653,8 @@ class MainActivity : AppCompatActivity() {
             }
         )
 
+        renderJoystick(running)
+
         card("Find an address") {
             addView(
                 valueField(
@@ -857,6 +871,157 @@ class MainActivity : AppCompatActivity() {
             )
         }
 
+    }
+
+    private fun renderJoystick(running: Boolean) {
+        val allowed = Settings.canDrawOverlays(this)
+        val wanted = SpoofPrefs.joystick(this)
+        card("Joystick") {
+            addView(
+                switchRow(
+                    "Float it over other apps",
+                    "A thumbstick on top of whatever you are using. Drag the handle to move it, tap the pace to change it, tap – to fold it away.",
+                    wanted && allowed,
+                ) { want ->
+                    SpoofPrefs.setJoystick(this@MainActivity, want)
+                    if (want && !Settings.canDrawOverlays(this@MainActivity)) {
+                        askOverlay()
+                        return@switchRow
+                    }
+                    if (running) {
+                        if (want) SpoofService.showJoystick(this@MainActivity)
+                        else SpoofService.hideJoystick(this@MainActivity)
+                    }
+                    render()
+                }
+            )
+
+            if (wanted && !allowed) {
+                addView(
+                    MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
+                        text = "Allow drawing over other apps"
+                        layoutParams = LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ).apply { topMargin = dp(6) }
+                        setOnClickListener { askOverlay() }
+                    }
+                )
+            }
+
+            addView(
+                switchRow(
+                    "Keep going when you let go",
+                    "The stick stays where you leave it instead of springing back to the middle.",
+                    SpoofPrefs.latch(this@MainActivity),
+                ) { value ->
+                    SpoofPrefs.setLatch(this@MainActivity, value)
+                    if (!value) JoyState.release()
+                    render()
+                }
+            )
+
+            addView(
+                text("Pace", 12f, cOnSurfaceVar).apply { setPadding(0, dp(12), 0, dp(6)) }
+            )
+            addView(paceRow())
+            addView(
+                text(
+                    "Hold the stick all the way over for ${SpoofPrefs.pace(this@MainActivity).pretty()}. " +
+                        "Push it part way for anything slower, and the bearing follows the direction you push.",
+                    12f,
+                    cOnSurfaceVar,
+                ).apply { setPadding(0, dp(8), 0, 0) }
+            )
+
+            addView(joystickPad(running))
+        }
+    }
+
+    private fun paceRow(): View {
+        val current = SpoofPrefs.pace(this)
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        for (pace in Pace.entries) {
+            val style =
+                if (pace == current) MR.attr.materialButtonStyle else MR.attr.materialButtonOutlinedStyle
+            row.addView(
+                MaterialButton(this, null, style).apply {
+                    text = pace.label
+                    isAllCaps = false
+                    insetTop = 0
+                    insetBottom = 0
+                    minWidth = 0
+                    minimumWidth = 0
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                    setPadding(dp(14), dp(6), dp(14), dp(6))
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ).apply { marginEnd = dp(6) }
+                    setOnClickListener {
+                        SpoofPrefs.setPace(this@MainActivity, pace)
+                        render()
+                    }
+                }
+            )
+        }
+        return HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(row)
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+        }
+    }
+
+    private fun joystickPad(running: Boolean): View {
+        val holder = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dp(14), 0, 0)
+            alpha = if (running) 1f else 0.4f
+        }
+        val readout = text(
+            if (running) "Standing still" else "Start spoofing to walk around.",
+            12f,
+            cOnSurfaceVar,
+        ).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(10), 0, 0)
+        }
+        val pad = JoystickView(this).apply {
+            accent = cPrimary
+            ring = cOutline
+            face = attr(MR.attr.colorSurfaceVariant, cCard)
+            latch = SpoofPrefs.latch(this@MainActivity)
+            isEnabled = running
+            layoutParams = LinearLayout.LayoutParams(dp(200), dp(200))
+            onAim = { east, north ->
+                JoyState.aim(east, north)
+                readout.text = readoutFor(east, north)
+            }
+        }
+        holder.addView(pad)
+        holder.addView(readout)
+        return holder
+    }
+
+    private fun readoutFor(east: Float, north: Float): String {
+        val push = hypot(east, north).coerceAtMost(1f)
+        if (push <= 0.02f) return "Standing still"
+        val speed = push * SpoofPrefs.pace(this).metresPerSecond
+        val bearing = (Math.toDegrees(atan2(east.toDouble(), north.toDouble())) + 360.0) % 360.0
+        return String.format(Locale.ROOT, "%.1f m/s · %03.0f°", speed, bearing)
+    }
+
+    private fun askOverlay() {
+        val intent = Intent(
+            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            Uri.parse("package:$packageName"),
+        )
+        runCatching { overlayAsk.launch(intent) }
+            .onFailure { toast("Could not open the permission screen.") }
     }
 
     private fun startSpoof() {

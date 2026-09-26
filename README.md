@@ -64,6 +64,31 @@ injection until now.
   location, so clearing the marker covers it transitively — but it is not clipped directly
   in third-party processes.
 
+## Joystick
+
+The manager can walk the fake position instead of pinning it. A thumbstick floats over
+whatever app is in front; pushing it moves the position in that direction, and the fix then
+carries a matching `bearing` and `speed` instead of the zeroes a stationary spoof reports.
+
+| Control | What it does |
+|---|---|
+| Stick | Direction, and by how far you push it, the fraction of the pace |
+| Pace chip | Stroll 0.8, Walk 1.4, Jog 3.1, Cycle 6.0, Drive 13.9 m/s |
+| Handle | Drags the window anywhere; the spot is remembered |
+| `–` | Folds it to a bar, which also stops the walk |
+| Latch | Keeps walking after your thumb leaves the stick |
+
+The same pad is in the Position tab for use without the overlay. The stick belongs to the
+spoof service, so it arrives when spoofing starts and leaves when it stops. While you are
+moving, the wander jitter is off — movement already varies the fix — and each step is
+written back to the target, so stopping leaves you where you walked to instead of snapping
+back to where you set off.
+
+The overlay needs `SYSTEM_ALERT_WINDOW`, which Android grants by hand. One honest note: a
+window sitting on top of another app shows up to that app as an obscured touch
+(`MotionEvent.FLAG_WINDOW_IS_OBSCURED`) when it covers where you tap, and a few apps refuse
+input in that case. Park it to one side, or fold it away before tapping.
+
 ## Layout
 
 ```

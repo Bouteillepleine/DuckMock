@@ -25,6 +25,11 @@ object SpoofPrefs {
     private const val LABEL = "label"
     private const val RUNNING = "running"
     private const val FAVOURITES = "favourites"
+    private const val PACE = "pace"
+    private const val JOYSTICK = "joystick"
+    private const val LATCH = "latch"
+    private const val OVERLAY_X = "overlay_x"
+    private const val OVERLAY_Y = "overlay_y"
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -77,6 +82,35 @@ object SpoofPrefs {
 
     fun setRunning(context: Context, value: Boolean) {
         prefs(context).edit().putBoolean(RUNNING, value).apply()
+    }
+
+    fun pace(context: Context): Pace = Pace.at(prefs(context).getInt(PACE, Pace.DEFAULT.ordinal))
+
+    fun setPace(context: Context, pace: Pace) {
+        prefs(context).edit().putInt(PACE, pace.ordinal).apply()
+    }
+
+    fun joystick(context: Context): Boolean = prefs(context).getBoolean(JOYSTICK, false)
+
+    fun setJoystick(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(JOYSTICK, value).apply()
+    }
+
+    fun latch(context: Context): Boolean = prefs(context).getBoolean(LATCH, false)
+
+    fun setLatch(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(LATCH, value).apply()
+    }
+
+    fun overlayX(context: Context): Int = prefs(context).getInt(OVERLAY_X, dp(context, 12))
+
+    fun overlayY(context: Context): Int = prefs(context).getInt(OVERLAY_Y, dp(context, 140))
+
+    private fun dp(context: Context, value: Int): Int =
+        (value * context.resources.displayMetrics.density).toInt()
+
+    fun setOverlayPosition(context: Context, x: Int, y: Int) {
+        prefs(context).edit().putInt(OVERLAY_X, x).putInt(OVERLAY_Y, y).apply()
     }
 
     fun favourites(context: Context): List<SpoofTarget> {
