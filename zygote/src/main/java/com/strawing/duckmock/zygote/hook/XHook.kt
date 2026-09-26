@@ -79,7 +79,7 @@ class Relay(private val callback: InvocationHandler) {
 
 object XHook {
 
-    private const val ENGINE_KEY = "duck.hook.engine"
+    private const val ENGINE_KEY = "runtime.transform.engine"
     private const val MODULE_PREFIX = "/data/adb/modules/"
     private const val OWN_MODULE_ID = "duckmock"
 
