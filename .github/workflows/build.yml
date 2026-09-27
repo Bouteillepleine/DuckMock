@@ -17,9 +17,35 @@ env:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Read the version
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION=$(sed -n 's/.*moduleVersionName by extra("\([^"]*\)").*/\1/p' \
+            build.gradle.kts | tr -d '\r' | head -1)
+          test -n "$VERSION" || { echo "no moduleVersionName in build.gradle.kts"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "building $VERSION"
+
+      - name: Check the tag against the version
+        # A tag is what the release is named after, so a tag that disagrees with the version
+        # the artifacts identify themselves by would publish a mislabelled release.
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match moduleVersionName ${VERSION}."
+            echo "Bump build.gradle.kts to ${GITHUB_REF_NAME#v}, or retag as v${VERSION}."
+            exit 1
+          fi
+          echo "tag ${GITHUB_REF_NAME} matches the version"
 
       - name: Fetch native dependencies
         # Not `submodules: recursive` on the checkout: LSPlant declares test-only submodules
@@ -110,6 +136,10 @@ jobs:
             && echo "  ok: module id" || { echo "  bad module id"; exit 1; }
           unzip -p "$ZIP" module.prop | grep -qE '^author=XxxY$' \
             && echo "  ok: author" || { echo "  bad author"; exit 1; }
+          unzip -p "$ZIP" module.prop | grep -qE "^version=${VERSION}\$" \
+            && echo "  ok: version ${VERSION}" \
+            || { echo "  module.prop disagrees with ${VERSION}"; \
+                 unzip -p "$ZIP" module.prop; exit 1; }
           echo "Module zip verified: $ZIP"
 
       - name: Verify the installer's own resource hashes
@@ -148,7 +178,7 @@ jobs:
             ls -R app/build/outputs/apk
             exit 1
           fi
-          cp "$APK" ./DuckMock-manager.apk
+          cp "$APK" "./DuckMock-manager-${VERSION}.apk"
 
           PROBE=probe/build/outputs/apk/release/probe-release.apk
           if [ ! -f "$PROBE" ]; then
@@ -156,7 +186,7 @@ jobs:
             ls -R probe/build/outputs/apk
             exit 1
           fi
-          cp "$PROBE" ./DuckMock-probe.apk
+          cp "$PROBE" "./DuckMock-probe-${VERSION}.apk"
 
           cp zygote/build/outputs/magisk/release/*.zip ./
           ls -l ./*.apk ./*.zip
@@ -166,8 +196,7 @@ jobs:
         with:
           name: DuckMock-release
           path: |
-            DuckMock-manager.apk
-            DuckMock-probe.apk
+            DuckMock-*.apk
             DuckMock-*.zip
           if-no-files-found: error
 
@@ -186,11 +215,34 @@ jobs:
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           set -euo pipefail
           TAG="${GITHUB_REF_NAME}"
-          VERSION="${TAG#v}"
-          ASSETS=(DuckMock-*.zip DuckMock-manager.apk DuckMock-probe.apk)
+          ASSETS=(DuckMock-*.zip DuckMock-*.apk)
+          ls -l "${ASSETS[@]}"
+
+          cat > notes.md <<NOTES
+          | File | What to do with it |
+          |---|---|
+          | \`DuckMock-${VERSION}-release.zip\` | Flash in KernelSU, Magisk or APatch, then reboot |
+          | \`DuckMock-manager-${VERSION}.apk\` | The manager: hiding switches, spoofing, joystick and routes |
+          | \`DuckMock-probe-${VERSION}.apk\` | Optional. Reports what a detector would see |
+
+          The module is what hides the mock flag; the manager on its own does nothing until it
+          is flashed and the phone has rebooted.
+          NOTES
+
+          # Built here rather than with --generate-notes, which cannot be combined with notes
+          # of our own.
+          echo >> notes.md
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="$TAG" --jq '.body' >> notes.md 2>/dev/null \
+            || echo "::warning::could not generate the commit list"
+
+          PRERELEASE=()
+          case "$TAG" in *-*) PRERELEASE=(--prerelease) ;; esac
+
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "::warning::$TAG already exists; replacing its assets."
             gh release upload "$TAG" "${ASSETS[@]}" \
@@ -200,5 +252,6 @@ jobs:
             gh release create "$TAG" "${ASSETS[@]}" \
               --repo "$GITHUB_REPOSITORY" \
               --title "DuckMock ${VERSION}" \
-              --generate-notes
+              --notes-file notes.md \
+              "${PRERELEASE[@]}"
           fi
