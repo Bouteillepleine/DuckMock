@@ -1,8 +1,9 @@
 # DuckMock
 
 A Zygisk module that hides mock location from every app on the device, with hooks that live
-**only inside system_server** — no LSPosed, and nothing injected into any app process. The
-manager app is also the spoofer: fixed position, joystick, or a route.
+**only inside system_server**. The manager app can also be used as a spoofer, with a fixed
+position, a joystick or a route. Any other GPS app can be declared the spoofer instead, and
+it alone keeps being told the truth.
 
 ## Why system_server only
 
@@ -28,9 +29,9 @@ Two honest notes: `Settings.Secure.mock_location` has read `0` since Android 6 w
 do, and an app may only ask app-ops about itself. The location marker is the vector that
 matters.
 
-**Residuals:** GNSS-level detection — an app watching `GnssStatus` can notice a fix with no
-satellites behind it (the synthetic sky switch covers the counts, not ephemeris). And the
-`mockLocation` bundle extra, a GMS convention, is only cleared transitively.
+**Residuals:** GNSS-level detection, where an app watching `GnssStatus` can notice a fix
+with no satellites behind it (the synthetic sky switch covers the counts, not ephemeris).
+And the `mockLocation` bundle extra, a GMS convention, is only cleared transitively.
 
 ## Moving the position
 
@@ -46,7 +47,7 @@ out. Routes are JSON under the manager's `files/routes/` and go when it is unins
 
 The overlay needs `SYSTEM_ALERT_WINDOW`. A window over another app reads as an obscured
 touch (`MotionEvent.FLAG_WINDOW_IS_OBSCURED`) where it covers your tap, and some apps refuse
-input then — park it aside or fold it. Wander jitter is off while moving, since motion
+input then, so park it aside or fold it. Wander jitter is off while moving, since motion
 already varies the fix.
 
 ## Layout
