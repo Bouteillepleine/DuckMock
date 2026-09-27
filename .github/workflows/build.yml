@@ -47,6 +47,19 @@ jobs:
           fi
           echo "tag ${GITHUB_REF_NAME} matches the version"
 
+          # update.json is what installed modules poll, so a stale one offers the wrong zip.
+          JSON_VERSION=$(jq -r .version update.json)
+          JSON_URL=$(jq -r .zipUrl update.json)
+          WANT_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/DuckMock-${VERSION}-release.zip"
+          if [ "$JSON_VERSION" != "$VERSION" ] || [ "$JSON_URL" != "$WANT_URL" ]; then
+            echo "::error::update.json does not describe this release."
+            echo "  version: $JSON_VERSION (want $VERSION)"
+            echo "  zipUrl:  $JSON_URL"
+            echo "  want:    $WANT_URL"
+            exit 1
+          fi
+          echo "update.json points at this release"
+
       - name: Fetch native dependencies
         # Not `submodules: recursive` on the checkout: LSPlant declares test-only submodules
         # over git@github.com:, which a blanket recursive fetch tries (and fails) to clone over

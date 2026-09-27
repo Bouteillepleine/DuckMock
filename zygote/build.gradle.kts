@@ -71,6 +71,7 @@ zygisk {
     author = "XxxY"
     description = "Hides mock location from every app, from inside system_server. Never injected into an app process."
     entrypoint = "$appPackageName.zygote.ZygoteEntry"
+    updateJson = "https://raw.githubusercontent.com/Bouteillepleine/DuckMock/master/update.json"
     archiveName = "DuckMock-$moduleVersionName"
     attachNativeLibs = true
     isAddVariantToArchiveName = true
