@@ -35,23 +35,20 @@ And the `mockLocation` bundle extra, a GMS convention, is only cleared transitiv
 
 ## Moving the position
 
-The **Joystick** tab holds a thumbstick that floats over whatever app is in front. Pushing
-it walks the position at the chosen pace (Stroll 0.8 → Drive 13.9 m/s), and the fix carries
-a real `bearing` and `speed` instead of zeroes. Drag the handle to move the window, tap the
-pace chip to change it, `–` to fold it away, latch to keep walking after your thumb leaves.
+The **Joystick** tab holds a thumbstick that floats over whatever app is in front. Pushing it
+walks the position at the chosen pace (Stroll 0.8 to Drive 13.9 m/s), and the fix carries a
+real `bearing` and `speed` instead of zeroes. Drag the handle to move it, tap the pace to
+change it, `⤡` to resize, `–` to fold, `✕` to close, latch to keep walking after your thumb
+leaves. It is off until you turn it on, and steps aside while DuckMock itself is open.
 
 Routes live on the same tab. Record the path you drive with the stick, or import a GPX file
 (`<trkpt>`, else `<rtept>`, else `<wpt>`); position, bearing and altitude are interpolated
 along each leg. `Stop`, `Loop` or `Bounce` at the last point. Export writes GPX 1.1 back
 out. Routes are JSON under the manager's `files/routes/` and go when it is uninstalled.
 
-The floating stick is opt-in and off until you turn it on, and it steps aside while DuckMock
-itself is open, since the same pad is already on the tab.
-
-The overlay needs `SYSTEM_ALERT_WINDOW`. A window over another app reads as an obscured
-touch (`MotionEvent.FLAG_WINDOW_IS_OBSCURED`) where it covers your tap, and some apps refuse
-input then, so park it aside or fold it. Wander jitter is off while moving, since motion
-already varies the fix.
+The overlay needs `SYSTEM_ALERT_WINDOW`, and a window over another app reads as an obscured
+touch (`MotionEvent.FLAG_WINDOW_IS_OBSCURED`) where it covers your tap, which a few apps
+refuse. Wander jitter is off while moving, since motion already varies the fix.
 
 ## Layout
 
@@ -60,7 +57,7 @@ common/   config, AIDL, shared constants
 zygote/   the Zygisk module: system_server hooks, native LSPlant glue, flashable zip
 app/      the manager (Material 3, root, talks to the module over a binder bridge)
 probe/    a plain unprivileged app that reports what a detector would see
-tools/    verify.sh, the on-device before/after check
+tools/    verify.sh, plus the release-key and CI-secret scripts
 external/ LSPlant, Dobby, xz-embedded (submodules, pinned)
 ```
 
@@ -93,7 +90,7 @@ D9:00:FE:92:D5:DA:11:F8:5F:62:D3:23:DF:A0:85:84:53:AA:0F:78:24:04:64:24:AE:F2:E3
 Check an APK against it before installing:
 
 ```
-apksigner verify --print-certs DuckMock-manager-1.3.0.apk
+apksigner verify --print-certs DuckMock-manager-<version>.apk
 ```
 
 It prints the same value in lowercase without the colons. Only files attached to a release
