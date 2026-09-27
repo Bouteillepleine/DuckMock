@@ -67,3 +67,7 @@ Hooking system_server can cost a boot, so `post-fs-data.sh` writes `disable_hook
 three failed boots, `service.sh` does the same if `sys.boot_completed` never arrives within
 150 s, and hooks arm only five seconds after boot completes. Last resort is KernelSU safe
 mode: hold volume down while booting.
+
+## Licence
+
+GPL-3.0, in `LICENSE`. It links LSPlant (LGPL-3.0) and Dobby (Apache-2.0).
