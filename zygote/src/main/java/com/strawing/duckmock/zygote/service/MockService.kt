@@ -39,19 +39,32 @@ class MockService(private val context: Context) : IMockService.Stub() {
     @Volatile
     private var resolvedAppId = -1
 
+    private fun lookupAppId(): Int = runCatching {
+        context.packageManager.getApplicationInfo(Config.PKG, 0).uid % Config.PER_USER_RANGE
+    }.getOrDefault(-1)
+
     val callerAppId: Int
         get() {
             if (resolvedAppId >= 0) return resolvedAppId
-            val id = runCatching {
-                context.packageManager.getApplicationInfo(Config.PKG, 0).uid % Config.PER_USER_RANGE
-            }.getOrDefault(-1)
+            val id = lookupAppId()
             if (id >= 0) resolvedAppId = id
             return id
         }
 
+    // Reinstalling the manager gives it a new app id, and a cached one would then lock it out
+    // until the next reboot, so a mismatch is worth one fresh lookup before it is refused.
+    fun isManager(uid: Int): Boolean {
+        val appId = uid % Config.PER_USER_RANGE
+        if (callerAppId >= 0 && appId == resolvedAppId) return true
+        val fresh = lookupAppId()
+        if (fresh < 0) return false
+        resolvedAppId = fresh
+        return appId == fresh
+    }
+
     private fun enforceCaller() {
         val uid = Binder.getCallingUid()
-        if (callerAppId < 0 || uid % Config.PER_USER_RANGE != callerAppId) {
+        if (!isManager(uid)) {
             throw SecurityException("caller uid $uid is not the module")
         }
     }

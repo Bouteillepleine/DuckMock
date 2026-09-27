@@ -109,8 +109,7 @@ object SettingsPart {
 
     fun bridgeBundle(uid: Int?): Bundle? {
         val svc = SystemServerPart.service ?: return null
-        if (uid == null || svc.callerAppId < 0) return null
-        if (uid % Config.PER_USER_RANGE != svc.callerAppId) return null
+        if (uid == null || !svc.isManager(uid)) return null
         return Bundle().apply { putBinder(Bridge.KEY_BINDER, svc) }
     }
 
