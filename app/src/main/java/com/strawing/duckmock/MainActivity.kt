@@ -225,8 +225,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ---------------------------------------------------------------- header
-
     private fun renderHeader() {
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -339,8 +337,6 @@ class MainActivity : AppCompatActivity() {
         resolveUid(uid)
         return uidPackages[uid] ?: "uid $uid"
     }
-
-    // ---------------------------------------------------------------- status
 
     private fun renderStatus() {
         if (!loaded) {
@@ -486,21 +482,14 @@ class MainActivity : AppCompatActivity() {
                 )
                 if (snap.armReport?.contains("refused:") == true) {
                     addView(
-                        MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                            text = "Let it arm again"
-                            layoutParams = LinearLayout.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.WRAP_CONTENT,
-                            ).apply { topMargin = dp(8) }
-                            setOnClickListener {
-                                Thread {
-                                    Root.resetSafetyCounter()
-                                    runOnUiThread {
-                                        toast("Cleared. It will arm on the next reboot.")
-                                        reload()
-                                    }
-                                }.apply { isDaemon = true }.start()
-                            }
+                        wideButton("Let it arm again") {
+                            Thread {
+                                Root.resetSafetyCounter()
+                                runOnUiThread {
+                                    toast("Cleared. It will arm on the next reboot.")
+                                    reload()
+                                }
+                            }.apply { isDaemon = true }.start()
                         }
                     )
                 }
@@ -508,36 +497,18 @@ class MainActivity : AppCompatActivity() {
         } else {
             card("Root not granted") {
                 addView(
-                    text(
-                        "Everything above still works without it. Root is only needed to keep settings across a reboot and to use the kill switch.",
-                        13f,
-                        cOnSurfaceVar,
-                    )
+                    body("Everything above still works without it. Root is only needed to keep settings across a reboot and to use the kill switch.")
                 )
-                addView(
-                    MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                        text = "Check again"
-                        layoutParams = LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ).apply { topMargin = dp(8) }
-                        setOnClickListener { reload() }
-                    }
-                )
+                addView(wideButton("Check again") { reload() })
             }
         }
     }
 
     private fun statTiles(items: List<Pair<String, String>>): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(6), 0, dp(2))
-        }
+        val row = hbox(top = 6, bottom = 2)
         for ((value, label) in items) {
-            val tile = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
+            val tile = vbox(1f).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 setPadding(dp(2), dp(6), dp(2), dp(6))
             }
             tile.addView(
@@ -644,8 +615,6 @@ class MainActivity : AppCompatActivity() {
         return banner("Active", detail, cPrimaryCont, cOnPrimaryCont)
     }
 
-    // -------------------------------------------------------------- position
-
     private var spoof = SpoofTarget()
     private var geoQuery = ""
     private var geoResults: List<android.location.Address> = emptyList()
@@ -685,13 +654,8 @@ class MainActivity : AppCompatActivity() {
             }
         )
         content.addView(
-            MaterialButton(this).apply {
-                text = if (running) "Stop" else "Start"
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                ).apply { topMargin = dp(12) }
-                setOnClickListener { if (running) stopSpoof() else startSpoof() }
+            wideButton(if (running) "Stop" else "Start", filled = true, top = 12) {
+                if (running) stopSpoof() else startSpoof()
             }
         )
     }
@@ -714,29 +678,9 @@ class MainActivity : AppCompatActivity() {
                     onSearch = { searchAddress() },
                 ) { geoQuery = it }
             )
-            val row = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(0, dp(10), 0, 0)
-            }
-            row.addView(
-                MaterialButton(this@MainActivity).apply {
-                    text = "Search"
-                    layoutParams = LinearLayout.LayoutParams(
-                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f,
-                    ).apply { marginEnd = dp(6) }
-                    setOnClickListener { searchAddress() }
-                }
+            addView(
+                splitButtons("Search", true, { searchAddress() }, "What is here?") { describeHere() }
             )
-            row.addView(
-                MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                    text = "What is here?"
-                    layoutParams = LinearLayout.LayoutParams(
-                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f,
-                    ).apply { marginStart = dp(6) }
-                    setOnClickListener { describeHere() }
-                }
-            )
-            addView(row)
 
             geoNote?.let {
                 addView(text(it, 13f, cPrimary).apply { setPadding(0, dp(10), 0, 0) })
@@ -744,10 +688,9 @@ class MainActivity : AppCompatActivity() {
 
             if (geoResults.isNotEmpty()) {
                 addView(
-                    text(
+                    note(
                         "${geoResults.size} result${if (geoResults.size == 1) "" else "s"} · tap one to go there",
-                        12f,
-                        cOnSurfaceVar,
+                        10,
                     ).apply { setPadding(0, dp(10), 0, dp(2)) }
                 )
                 for (hit in geoResults) {
@@ -771,9 +714,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             if (!Geo.available()) {
-                addView(
-                    text("No geocoder here, so only coordinates will work.", 12f, cOnSurfaceVar)
-                )
+                addView(note("No geocoder here, so only coordinates will work."))
             }
         }
 
@@ -807,60 +748,28 @@ class MainActivity : AppCompatActivity() {
                 )
             )
             addView(
-                text(
-                    "Wander drifts the position a few metres on each update. A fix frozen to the centimetre is a tell; set 0 to stand still.",
-                    12f,
-                    cOnSurfaceVar,
-                ).apply { setPadding(0, dp(10), 0, 0) }
+                note("Wander drifts the position a few metres on each update. A fix frozen to the centimetre is a tell; set 0 to stand still.", 10)
             )
-            val actions = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(0, dp(10), 0, 0)
-            }
-            actions.addView(
-                MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                    text = "Use my position"
-                    layoutParams = LinearLayout.LayoutParams(
-                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f,
-                    ).apply { marginEnd = dp(6) }
-                    setOnClickListener { fillFromReal() }
-                }
-            )
-            actions.addView(
-                MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                    text = "Save favourite"
-                    layoutParams = LinearLayout.LayoutParams(
-                        0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f,
-                    ).apply { marginStart = dp(6) }
-                    setOnClickListener {
-                        if (spoof.label.isBlank()) {
-                            toast("Give it a name first.")
-                        } else {
-                            SpoofPrefs.addFavourite(this@MainActivity, spoof)
-                            render()
-                        }
+            addView(
+                splitButtons("Use my position", false, { fillFromReal() }, "Save favourite") {
+                    if (spoof.label.isBlank()) {
+                        toast("Give it a name first.")
+                    } else {
+                        SpoofPrefs.addFavourite(this@MainActivity, spoof)
+                        render()
                     }
                 }
             )
-            addView(actions)
         }
 
         val favourites = SpoofPrefs.favourites(this)
         if (favourites.isNotEmpty()) {
             card("Favourites") {
                 for (fav in favourites) {
-                    val row = LinearLayout(this@MainActivity).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding(0, dp(6), 0, dp(6))
-                    }
-                    val labels = LinearLayout(this@MainActivity).apply {
-                        orientation = LinearLayout.VERTICAL
-                        layoutParams =
-                            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-                    }
+                    val row = hbox(top = 6, bottom = 6)
+                    val labels = vbox(1f)
                     labels.addView(text(fav.label, 15f, cOnSurface))
-                    labels.addView(text(fav.pretty(), 12f, cOnSurfaceVar))
+                    labels.addView(note(fav.pretty()))
                     labels.setOnClickListener {
                         spoof = fav
                         SpoofPrefs.setTarget(this@MainActivity, fav)
@@ -868,16 +777,9 @@ class MainActivity : AppCompatActivity() {
                     }
                     row.addView(labels)
                     row.addView(
-                        MaterialButton(
-                            this@MainActivity,
-                            null,
-                            MR.attr.materialButtonOutlinedStyle,
-                        ).apply {
-                            text = "Remove"
-                            setOnClickListener {
-                                SpoofPrefs.removeFavourite(this@MainActivity, fav.label)
-                                render()
-                            }
+                        chip("Remove", false) {
+                            SpoofPrefs.removeFavourite(this@MainActivity, fav.label)
+                            render()
                         }
                     )
                     addView(row)
@@ -930,8 +832,6 @@ class MainActivity : AppCompatActivity() {
         divider.alpha = 0f
     }
 
-    // ------------------------------------------------------------- joystick
-
     private fun renderJoystickTab() {
         val running = SpoofPrefs.running(this)
         val playing = RouteState.playing
@@ -974,16 +874,7 @@ class MainActivity : AppCompatActivity() {
             )
 
             if (wanted && !allowed) {
-                addView(
-                    MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                        text = "Allow drawing over other apps"
-                        layoutParams = LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ).apply { topMargin = dp(6) }
-                        setOnClickListener { askOverlay() }
-                    }
-                )
+                addView(wideButton("Allow drawing over other apps", top = 6) { askOverlay() })
             }
 
             addView(
@@ -998,17 +889,14 @@ class MainActivity : AppCompatActivity() {
                 }
             )
 
-            addView(
-                text("Pace", 12f, cOnSurfaceVar).apply { setPadding(0, dp(12), 0, dp(6)) }
-            )
+            addView(note("Pace").apply { setPadding(0, dp(12), 0, dp(6)) })
             addView(paceRow())
             addView(
-                text(
+                note(
                     "Hold the stick all the way over for ${SpoofPrefs.pace(this@MainActivity).pretty()}. " +
                         "Push it part way for anything slower, and the bearing follows the direction you push.",
-                    12f,
-                    cOnSurfaceVar,
-                ).apply { setPadding(0, dp(8), 0, 0) }
+                    8,
+                )
             )
 
             addView(joystickPad(running))
@@ -1017,30 +905,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun paceRow(): View {
         val current = SpoofPrefs.pace(this)
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val row = hbox()
         for (pace in Pace.entries) {
-            val style =
-                if (pace == current) MR.attr.materialButtonStyle else MR.attr.materialButtonOutlinedStyle
-            row.addView(
-                MaterialButton(this, null, style).apply {
-                    text = pace.label
-                    isAllCaps = false
-                    insetTop = 0
-                    insetBottom = 0
-                    minWidth = 0
-                    minimumWidth = 0
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                    setPadding(dp(14), dp(6), dp(14), dp(6))
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ).apply { marginEnd = dp(6) }
-                    setOnClickListener {
-                        SpoofPrefs.setPace(this@MainActivity, pace)
-                        render()
-                    }
-                }
-            )
+            row.addView(chip(pace.label, pace == current) {
+                SpoofPrefs.setPace(this, pace)
+                render()
+            })
         }
         return HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
@@ -1092,8 +962,6 @@ class MainActivity : AppCompatActivity() {
         return String.format(Locale.ROOT, "%.1f m/s · %03.0f°", speed, bearing)
     }
 
-    // ---------------------------------------------------------------- routes
-
     private fun renderRoute(running: Boolean) {
         val playing = RouteState.playing
         card("Route") {
@@ -1106,87 +974,50 @@ class MainActivity : AppCompatActivity() {
                     )
                 )
                 addView(
-                    MaterialButton(this@MainActivity).apply {
-                        text = "Stop the route"
-                        layoutParams = LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ).apply { topMargin = dp(10) }
-                        setOnClickListener {
-                            RouteState.stop()
-                            JoyState.release()
-                            render()
-                        }
+                    wideButton("Stop the route", filled = true, top = 10) {
+                        RouteState.stop()
+                        JoyState.release()
+                        render()
                     }
                 )
                 addView(
-                    text(
-                        "The stick is ignored while a route plays. The pace still sets how fast you go along it.",
-                        12f,
-                        cOnSurfaceVar,
-                    ).apply { setPadding(0, dp(10), 0, 0) }
+                    note("The stick is ignored while a route plays. The pace still sets how fast you go along it.", 10)
                 )
                 scheduleProgressTick()
             } else {
                 addView(
-                    text(
-                        "Play a saved route to walk it at the chosen pace, or record the path you walk with the stick and keep it.",
-                        13f,
-                        cOnSurfaceVar,
-                    )
+                    body("Play a saved route to walk it at the chosen pace, or record the path you walk with the stick and keep it.")
                 )
             }
 
-            addView(text("At the end", 12f, cOnSurfaceVar).apply { setPadding(0, dp(12), 0, dp(6)) })
+            addView(note("At the end", 12).apply { setPadding(0, dp(12), 0, dp(6)) })
             addView(endingRow())
             addView(
-                text(
-                    "Loop jumps back to the first point, which only looks natural on a route that comes home. Bounce turns round and walks it backwards.",
-                    12f,
-                    cOnSurfaceVar,
-                ).apply { setPadding(0, dp(8), 0, 0) }
+                note("Loop jumps back to the first point, which only looks natural on a route that comes home. Bounce turns round and walks it backwards.", 8)
             )
 
-            addView(text("Recording", 12f, cOnSurfaceVar).apply { setPadding(0, dp(14), 0, dp(2)) })
+            addView(note("Recording", 14).apply { setPadding(0, dp(14), 0, dp(2)) })
             if (RouteState.recording) {
                 addView(infoRow("Captured", "${RouteState.recordedCount()} points"))
                 addView(valueField("Route name", routeName) { routeName = it })
-                val actions = LinearLayout(this@MainActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    setPadding(0, dp(10), 0, 0)
-                }
-                actions.addView(smallButton("Save", true) { saveRecording() })
+                val actions = hbox(top = 10)
+                actions.addView(chip("Save", true) { saveRecording() })
                 actions.addView(
-                    smallButton("Discard", false) {
+                    chip("Discard", false) {
                         RouteState.discardRecording()
                         render()
                     }
                 )
-                actions.addView(View(this@MainActivity).apply {
-                    layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
-                })
                 addView(actions)
             } else {
                 addView(
-                    MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                        text = "Record where I walk"
-                        isEnabled = running
-                        layoutParams = LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.MATCH_PARENT,
-                            ViewGroup.LayoutParams.WRAP_CONTENT,
-                        ).apply { topMargin = dp(6) }
-                        setOnClickListener {
-                            RouteState.startRecording()
-                            render()
-                        }
+                    wideButton("Record where I walk", top = 6, enabled = running) {
+                        RouteState.startRecording()
+                        render()
                     }
                 )
                 addView(
-                    text(
-                        "One point every four metres while the position moves, whether you drive it with the stick or with another route.",
-                        12f,
-                        cOnSurfaceVar,
-                    ).apply { setPadding(0, dp(8), 0, 0) }
+                    note("One point every four metres while the position moves, whether you drive it with the stick or with another route.", 8)
                 )
             }
         }
@@ -1197,50 +1028,33 @@ class MainActivity : AppCompatActivity() {
         card("Saved routes") {
             if (routes.isEmpty()) {
                 addView(
-                    text(
-                        "Nothing saved yet. Record a walk, or import a GPX track from a watch, a phone or a route planner.",
-                        13f,
-                        cOnSurfaceVar,
-                    )
+                    body("Nothing saved yet. Record a walk, or import a GPX track from a watch, a phone or a route planner.")
                 )
             }
             for (route in routes) addView(routeRow(route, running))
             addView(
-                MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                    text = "Import a GPX file"
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ).apply { topMargin = dp(12) }
-                    setOnClickListener {
-                        runCatching { gpxOpen.launch(arrayOf("*/*")) }
-                            .onFailure { toast("No file picker answered.") }
-                    }
+                wideButton("Import a GPX file", top = 12) {
+                    runCatching { gpxOpen.launch(arrayOf("*/*")) }
+                        .onFailure { toast("No file picker answered.") }
                 }
             )
         }
     }
 
     private fun routeRow(route: Route, running: Boolean): View {
-        val holder = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(10), 0, dp(4))
-        }
+        val holder = vbox().apply { setPadding(0, dp(10), 0, dp(4)) }
         holder.addView(text(route.name, 15f, cOnSurface))
-        holder.addView(text(route.pretty(), 12f, cOnSurfaceVar))
-        val actions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(8), 0, 0)
-        }
+        holder.addView(note(route.pretty()))
+        val actions = hbox(top = 8)
         val playing = RouteState.playing?.name == route.name
         actions.addView(
-            smallButton(if (playing) "Playing" else "Play", true) {
+            chip(if (playing) "Playing" else "Play", true) {
                 if (!playing) playRoute(route)
             }
         )
-        actions.addView(smallButton("Export", false) { exportRoute(route) })
+        actions.addView(chip("Export", false) { exportRoute(route) })
         actions.addView(
-            smallButton("Remove", false) {
+            chip("Remove", false) {
                 if (RouteState.playing?.name == route.name) RouteState.stop()
                 RouteStore.delete(this@MainActivity, route.name)
                 render()
@@ -1251,58 +1065,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun endingRow(): View {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val row = hbox()
         for (option in Ending.entries) {
-            val selected = option == RouteState.ending
-            row.addView(
-                MaterialButton(
-                    this,
-                    null,
-                    if (selected) MR.attr.materialButtonStyle else MR.attr.materialButtonOutlinedStyle,
-                ).apply {
-                    text = option.label
-                    isAllCaps = false
-                    insetTop = 0
-                    insetBottom = 0
-                    minWidth = 0
-                    minimumWidth = 0
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-                    setPadding(dp(10), dp(6), dp(10), dp(6))
-                    layoutParams = LinearLayout.LayoutParams(
-                        0,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                        1f,
-                    ).apply { marginEnd = dp(6) }
-                    setOnClickListener {
-                        RouteState.ending = option
-                        render()
-                    }
-                }
-            )
+            row.addView(chip(option.label, option == RouteState.ending, 1f) {
+                RouteState.ending = option
+                render()
+            })
         }
         return row
     }
-
-    private fun smallButton(label: String, filled: Boolean, onClick: () -> Unit): View =
-        MaterialButton(
-            this,
-            null,
-            if (filled) MR.attr.materialButtonStyle else MR.attr.materialButtonOutlinedStyle,
-        ).apply {
-            text = label
-            isAllCaps = false
-            insetTop = 0
-            insetBottom = 0
-            minWidth = 0
-            minimumWidth = 0
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
-            setPadding(dp(12), dp(6), dp(12), dp(6))
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-            ).apply { marginEnd = dp(6) }
-            setOnClickListener { onClick() }
-        }
 
     private fun scheduleProgressTick() {
         if (progressTicking) return
@@ -1534,9 +1305,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun resultRow(title: String, sub: String, onPick: () -> Unit): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+        val row = hbox().apply {
             setPadding(dp(12), dp(14), dp(12), dp(14))
             val outValue = android.util.TypedValue()
             context.theme.resolveAttribute(
@@ -1560,8 +1329,6 @@ class MainActivity : AppCompatActivity() {
         row.addView(texts)
         return row
     }
-
-    // ---------------------------------------------------------------- hiding
 
     private fun renderHiding() {
         content.addView(
@@ -1648,8 +1415,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ------------------------------------------------------------------ apps
-
     private fun renderApps() {
         renderRefused()
         card("Your spoofer") {
@@ -1673,15 +1438,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             addView(
-                MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                    text = if (config.spoofers.isEmpty()) "Choose" else "Change"
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ).apply { topMargin = dp(8) }
-                    setOnClickListener {
-                        openPicker(AppPickerActivity.MODE_SPOOFERS, config.spoofers)
-                    }
+                wideButton(if (config.spoofers.isEmpty()) "Choose" else "Change") {
+                    openPicker(AppPickerActivity.MODE_SPOOFERS, config.spoofers)
                 }
             )
         }
@@ -1706,15 +1464,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             addView(
-                MaterialButton(this@MainActivity, null, MR.attr.materialButtonOutlinedStyle).apply {
-                    text = if (config.exempt.isEmpty()) "Choose" else "Change"
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ).apply { topMargin = dp(8) }
-                    setOnClickListener {
-                        openPicker(AppPickerActivity.MODE_EXEMPT, config.exempt)
-                    }
+                wideButton(if (config.exempt.isEmpty()) "Choose" else "Change") {
+                    openPicker(AppPickerActivity.MODE_EXEMPT, config.exempt)
                 }
             )
         }
@@ -1793,19 +1544,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun appRow(pkg: String, action: String = "Remove", onRemove: () -> Unit): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(10), 0, dp(10))
-        }
+        val row = hbox(top = 10, bottom = 10)
         row.addView(ImageView(this).apply {
             setImageDrawable(runCatching { packageManager.getApplicationIcon(pkg) }.getOrNull())
             layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(14) }
         })
-        val texts = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
+        val texts = vbox(1f)
         texts.addView(text(labelOf(pkg), 15f, cOnSurface))
         texts.addView(text(pkg, 11f, cOnSurfaceVar))
         row.addView(texts)
@@ -1826,28 +1570,18 @@ class MainActivity : AppCompatActivity() {
         picker.launch(intent)
     }
 
-    // ------------------------------------------------------------------- log
-
     private fun renderLog() {
         if (records.isEmpty()) {
             if (live == null && (armed()?.get("location")?.toIntOrNull() ?: 0) > 0) {
                 card("The log cannot be read") {
                     addView(
-                        text(
-                            "The module is armed and hiding, but the channel this app reads its log through is held by another module. The counters exist inside system_server, this screen just cannot reach them.",
-                            13f,
-                            cOnSurfaceVar,
-                        )
+                        body("The module is armed and hiding, but the channel this app reads its log through is held by another module. The counters exist inside system_server, this screen just cannot reach them.")
                     )
                 }
             } else {
                 card("Nothing recorded") {
                     addView(
-                        text(
-                            "The module notes each app it lied to, and each location it cleaned. Nothing yet on this boot.",
-                            13f,
-                            cOnSurfaceVar,
-                        )
+                        body("The module notes each app it lied to, and each location it cleaned. Nothing yet on this boot.")
                     )
                 }
             }
@@ -1871,19 +1605,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
         content.addView(
-            MaterialButton(this, null, MR.attr.materialButtonOutlinedStyle).apply {
-                text = "Clear"
-                setOnClickListener {
-                    Thread {
-                        ServiceClient.clearRecords(this@MainActivity)
-                        runOnUiThread { reload() }
-                    }.apply { isDaemon = true }.start()
-                }
+            wideButton("Clear") {
+                Thread {
+                    ServiceClient.clearRecords(this)
+                    runOnUiThread { reload() }
+                }.apply { isDaemon = true }.start()
             }
         )
     }
-
-    // -------------------------------------------------------------- builders
 
     private fun card(title: String, build: LinearLayout.() -> Unit) {
         val body = LinearLayout(this).apply {
@@ -1929,21 +1658,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun recordRow(title: String, sub: String, right: String, rightSub: String): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(8), 0, dp(8))
-        }
-        val left = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.1f)
-        }
+        val row = hbox(top = 8, bottom = 8)
+        val left = vbox(1.1f)
         left.addView(text(title, 15f, cOnSurface))
         left.addView(text(sub, 11f, cOnSurfaceVar))
         row.addView(left)
-        val rightBox = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
+        val rightBox = vbox(1f)
         rightBox.addView(text(right, 15f, cPrimary).apply { gravity = Gravity.END })
         rightBox.addView(text(rightSub, 11f, cOnSurfaceVar).apply { gravity = Gravity.END })
         row.addView(rightBox)
@@ -1951,10 +1671,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun infoRow(label: String, value: String): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(5), 0, dp(5))
-        }
+        val row = hbox(top = 5, bottom = 5)
         row.addView(text(label, 14f, cOnSurfaceVar).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         })
@@ -1972,18 +1689,10 @@ class MainActivity : AppCompatActivity() {
         enabled: Boolean = true,
         onChange: (Boolean) -> Unit,
     ): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(8), 0, dp(8))
-            alpha = if (enabled) 1f else 0.45f
-        }
-        val texts = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
+        val row = hbox(top = 8, bottom = 8).apply { alpha = if (enabled) 1f else 0.45f }
+        val texts = vbox(1f)
         texts.addView(text(label, 15f, cOnSurface))
-        texts.addView(text(sub, 12f, cOnSurfaceVar))
+        texts.addView(note(sub))
         row.addView(texts)
         row.addView(MaterialSwitch(this).apply {
             isChecked = checked
@@ -2011,6 +1720,94 @@ class MainActivity : AppCompatActivity() {
             ViewGroup.LayoutParams.WRAP_CONTENT,
         )
     }
+
+    private fun note(value: String, top: Int = 0): TextView =
+        text(value, 12f, cOnSurfaceVar).apply { setPadding(0, dp(top), 0, 0) }
+
+    private fun body(value: String): TextView = text(value, 13f, cOnSurfaceVar)
+
+    private fun hbox(top: Int = 0, bottom: Int = 0): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(0, dp(top), 0, dp(bottom))
+    }
+
+    private fun vbox(weight: Float = 0f): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        if (weight > 0f) {
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight)
+        }
+    }
+
+    private fun wideButton(
+        label: String,
+        filled: Boolean = false,
+        top: Int = 8,
+        enabled: Boolean = true,
+        onClick: () -> Unit,
+    ): View = MaterialButton(this, null, buttonStyle(filled)).apply {
+        text = label
+        isEnabled = enabled
+        layoutParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(top) }
+        setOnClickListener { onClick() }
+    }
+
+    private fun chip(
+        label: String,
+        filled: Boolean,
+        weight: Float = 0f,
+        onClick: () -> Unit,
+    ): View = MaterialButton(this, null, buttonStyle(filled)).apply {
+        text = label
+        isAllCaps = false
+        insetTop = 0
+        insetBottom = 0
+        minWidth = 0
+        minimumWidth = 0
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+        setPadding(dp(12), dp(6), dp(12), dp(6))
+        layoutParams = if (weight > 0f) {
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, weight)
+        } else {
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+        }.apply { marginEnd = dp(6) }
+        setOnClickListener { onClick() }
+    }
+
+    private fun splitButtons(
+        leftLabel: String,
+        leftFilled: Boolean,
+        onLeft: () -> Unit,
+        rightLabel: String,
+        onRight: () -> Unit,
+    ): View = hbox(top = 10).apply {
+        addView(halfButton(leftLabel, leftFilled, true, onLeft))
+        addView(halfButton(rightLabel, false, false, onRight))
+    }
+
+    private fun halfButton(
+        label: String,
+        filled: Boolean,
+        first: Boolean,
+        onClick: () -> Unit,
+    ): View = MaterialButton(this, null, buttonStyle(filled)).apply {
+        text = label
+        layoutParams = LinearLayout.LayoutParams(
+            0,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            1f,
+        ).apply { if (first) marginEnd = dp(6) else marginStart = dp(6) }
+        setOnClickListener { onClick() }
+    }
+
+    private fun buttonStyle(filled: Boolean): Int =
+        if (filled) MR.attr.materialButtonStyle else MR.attr.materialButtonOutlinedStyle
 
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
