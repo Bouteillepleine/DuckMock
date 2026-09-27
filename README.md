@@ -77,9 +77,10 @@ git submodule update --init --recursive
 Outputs: `zygote/build/outputs/magisk/release/DuckMock-<version>-release.zip` to flash in
 KernelSU, Magisk or APatch, and `app/build/outputs/apk/release/app-release.apk`.
 
-`key.properties` and `duckmock.jks` sign the manager and are gitignored; drop your own in the
-repo root, or set `DUCKMOCK_STORE_FILE` / `DUCKMOCK_STORE_PASSWORD` / `DUCKMOCK_KEY_ALIAS` /
-`DUCKMOCK_KEY_PASSWORD`.
+`key.properties` names the keystore that signs the manager and is gitignored, so point its
+`storeFile` at a keystore of your own, or set `DUCKMOCK_STORE_FILE` /
+`DUCKMOCK_STORE_PASSWORD` / `DUCKMOCK_KEY_ALIAS` / `DUCKMOCK_KEY_PASSWORD`.
+`tools/new-release-key.sh` makes one and pushes it to the CI secrets in a single step.
 
 ## Checking a download
 
