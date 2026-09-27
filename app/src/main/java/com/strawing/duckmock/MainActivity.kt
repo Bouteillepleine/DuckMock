@@ -169,8 +169,16 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (SpoofPrefs.running(this)) SpoofService.hideJoystick(this)
         render()
         reload()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (SpoofPrefs.running(this) && SpoofPrefs.joystick(this)) {
+            SpoofService.showJoystick(this)
+        }
     }
 
     private fun reload() {
@@ -235,6 +243,11 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
+        bar.addView(TextView(this).apply {
+            text = "🦆"
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 27f)
+            setPadding(0, 0, dp(10), 0)
+        })
         titles.addView(
             text(if (logOpen) "Log" else "DuckMock", 26f, cOnSurface, Typeface.BOLD)
         )

@@ -30,6 +30,11 @@ object SpoofPrefs {
     private const val LATCH = "latch"
     private const val OVERLAY_X = "overlay_x"
     private const val OVERLAY_Y = "overlay_y"
+    private const val PAD_SIZE = "pad_size"
+
+    const val PAD_MIN = 110
+    const val PAD_MAX = 280
+    const val PAD_DEFAULT = 164
 
     private fun prefs(context: Context) =
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -111,6 +116,13 @@ object SpoofPrefs {
 
     fun setOverlayPosition(context: Context, x: Int, y: Int) {
         prefs(context).edit().putInt(OVERLAY_X, x).putInt(OVERLAY_Y, y).apply()
+    }
+
+    fun padSize(context: Context): Int =
+        prefs(context).getInt(PAD_SIZE, PAD_DEFAULT).coerceIn(PAD_MIN, PAD_MAX)
+
+    fun setPadSize(context: Context, value: Int) {
+        prefs(context).edit().putInt(PAD_SIZE, value.coerceIn(PAD_MIN, PAD_MAX)).apply()
     }
 
     fun favourites(context: Context): List<SpoofTarget> {

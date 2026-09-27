@@ -29,7 +29,9 @@ class OverlayController(private val service: Service) {
     private var readout: TextView? = null
     private var chip: TextView? = null
     private var toggle: TextView? = null
+    private var grip: TextView? = null
     private var collapsed = false
+    private var padSize = SpoofPrefs.PAD_DEFAULT
 
     val up: Boolean
         get() = root != null
@@ -66,6 +68,7 @@ class OverlayController(private val service: Service) {
         pad = null
         readout = null
         chip = null
+        grip = null
         toggle = null
         JoyState.overlayUp = false
         JoyState.release()
@@ -146,10 +149,23 @@ class OverlayController(private val service: Service) {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             gravity = Gravity.CENTER
             isClickable = true
-            layoutParams = LinearLayout.LayoutParams(dp(30f).toInt(), dp(26f).toInt())
+            layoutParams = LinearLayout.LayoutParams(dp(28f).toInt(), dp(26f).toInt())
             setOnClickListener { setCollapsed(!collapsed) }
         }
         row.addView(toggle)
+        row.addView(TextView(service).apply {
+            text = "✕"
+            setTextColor(MUTED)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            gravity = Gravity.CENTER
+            isClickable = true
+            layoutParams = LinearLayout.LayoutParams(dp(28f).toInt(), dp(26f).toInt())
+            // Closing is meant to stick, so the stick does not return on the next session.
+            setOnClickListener {
+                SpoofPrefs.setJoystick(service, false)
+                hide()
+            }
+        })
         attachDrag(row)
         return row
     }
@@ -159,12 +175,16 @@ class OverlayController(private val service: Service) {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
         }
+        padSize = SpoofPrefs.padSize(service)
         val view = JoystickView(service).apply {
             accent = ACCENT
             ring = EDGE
             face = FACE
             latch = SpoofPrefs.latch(service)
-            layoutParams = LinearLayout.LayoutParams(dp(164f).toInt(), dp(164f).toInt())
+            layoutParams = LinearLayout.LayoutParams(
+                dp(padSize.toFloat()).toInt(),
+                dp(padSize.toFloat()).toInt(),
+            )
             onAim = { east, north ->
                 JoyState.aim(east, north)
                 if (!JoyState.pushing) {
@@ -179,19 +199,68 @@ class OverlayController(private val service: Service) {
     }
 
     private fun readoutRow(): View {
-        val line = TextView(service).apply {
+        val row = LinearLayout(service).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(4f).toInt(), dp(6f).toInt(), 0, 0)
+        }
+        readout = TextView(service).apply {
             text = "Standing still"
             setTextColor(MUTED)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             gravity = Gravity.CENTER
-            setPadding(0, dp(6f).toInt(), 0, 0)
             layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f,
             )
         }
-        readout = line
-        return line
+        row.addView(readout)
+        grip = TextView(service).apply {
+            text = "⤡"
+            setTextColor(MUTED)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(26f).toInt(), dp(22f).toInt())
+        }
+        attachResize(grip!!)
+        row.addView(grip)
+        return row
+    }
+
+    private fun attachResize(handle: View) {
+        var startSize = 0
+        var downX = 0f
+        var downY = 0f
+        handle.setOnTouchListener { _, event ->
+            val view = pad ?: return@setOnTouchListener false
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startSize = padSize
+                    downX = event.rawX
+                    downY = event.rawY
+                    true
+                }
+
+                MotionEvent.ACTION_MOVE -> {
+                    val density = service.resources.displayMetrics.density
+                    val moved = ((event.rawX - downX) + (event.rawY - downY)) / 2f / density
+                    padSize = (startSize + moved).toInt()
+                        .coerceIn(SpoofPrefs.PAD_MIN, SpoofPrefs.PAD_MAX)
+                    val side = dp(padSize.toFloat()).toInt()
+                    view.layoutParams = LinearLayout.LayoutParams(side, side)
+                    view.requestLayout()
+                    true
+                }
+
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    SpoofPrefs.setPadSize(service, padSize)
+                    true
+                }
+
+                else -> false
+            }
+        }
     }
 
     private fun setCollapsed(value: Boolean) {
@@ -201,7 +270,7 @@ class OverlayController(private val service: Service) {
             pad?.reset()
         }
         pad?.parent?.let { (it as View).visibility = if (value) View.GONE else View.VISIBLE }
-        readout?.visibility = if (value) View.GONE else View.VISIBLE
+        (readout?.parent as? View)?.visibility = if (value) View.GONE else View.VISIBLE
         chip?.visibility = if (value) View.GONE else View.VISIBLE
         toggle?.text = if (value) "+" else "–"
         refresh()

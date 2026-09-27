@@ -45,6 +45,9 @@ Routes live on the same tab. Record the path you drive with the stick, or import
 along each leg. `Stop`, `Loop` or `Bounce` at the last point. Export writes GPX 1.1 back
 out. Routes are JSON under the manager's `files/routes/` and go when it is uninstalled.
 
+The floating stick is opt-in and off until you turn it on, and it steps aside while DuckMock
+itself is open, since the same pad is already on the tab.
+
 The overlay needs `SYSTEM_ALERT_WINDOW`. A window over another app reads as an obscured
 touch (`MotionEvent.FLAG_WINDOW_IS_OBSCURED`) where it covers your tap, and some apps refuse
 input then, so park it aside or fold it. Wander jitter is off while moving, since motion
