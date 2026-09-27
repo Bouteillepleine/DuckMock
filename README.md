@@ -78,6 +78,24 @@ KernelSU, Magisk or APatch, and `app/build/outputs/apk/release/app-release.apk`.
 repo root, or set `DUCKMOCK_STORE_FILE` / `DUCKMOCK_STORE_PASSWORD` / `DUCKMOCK_KEY_ALIAS` /
 `DUCKMOCK_KEY_PASSWORD`.
 
+## Checking a download
+
+Release assets are signed with one certificate, whose SHA-256 is:
+
+```
+D9:00:FE:92:D5:DA:11:F8:5F:62:D3:23:DF:A0:85:84:53:AA:0F:78:24:04:64:24:AE:F2:E3:B5:7D:D5:40:DE
+```
+
+Check an APK against it before installing:
+
+```
+apksigner verify --print-certs DuckMock-manager-1.3.0.apk
+```
+
+It prints the same value in lowercase without the colons. Only files attached to a release
+carry this key. An APK taken from an Actions run is signed with the throwaway key in `ci/`,
+whose password is in the workflow, so that signature proves nothing.
+
 ## Safety
 
 Hooking system_server can cost a boot, so `post-fs-data.sh` writes `disable_hooks` after
