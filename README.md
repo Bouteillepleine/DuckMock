@@ -61,42 +61,6 @@ tools/    verify.sh, plus the release-key and CI-secret scripts
 external/ LSPlant, Dobby, xz-embedded (submodules, pinned)
 ```
 
-## Building
-
-Needs the Android SDK with NDK 29.0.14206865 and CMake 3.31.6 (LSPlant needs CMake >= 3.28),
-plus JDK 21.
-
-```
-git submodule update --init --recursive
-./gradlew :zygote:assembleRelease :app:assembleRelease :probe:assembleDebug
-```
-
-Outputs: `zygote/build/outputs/magisk/release/DuckMock-<version>-release.zip` to flash in
-KernelSU, Magisk or APatch, and `app/build/outputs/apk/release/app-release.apk`.
-
-`key.properties` names the keystore that signs the manager and is gitignored, so point its
-`storeFile` at a keystore of your own, or set `DUCKMOCK_STORE_FILE` /
-`DUCKMOCK_STORE_PASSWORD` / `DUCKMOCK_KEY_ALIAS` / `DUCKMOCK_KEY_PASSWORD`.
-`tools/new-release-key.sh` makes one and pushes it to the CI secrets in a single step.
-
-## Checking a download
-
-Release assets are signed with one certificate, whose SHA-256 is:
-
-```
-D9:00:FE:92:D5:DA:11:F8:5F:62:D3:23:DF:A0:85:84:53:AA:0F:78:24:04:64:24:AE:F2:E3:B5:7D:D5:40:DE
-```
-
-Check an APK against it before installing:
-
-```
-apksigner verify --print-certs DuckMock-manager-<version>.apk
-```
-
-It prints the same value in lowercase without the colons. Only files attached to a release
-carry this key. An APK taken from an Actions run is signed with the throwaway key in `ci/`,
-whose password is in the workflow, so that signature proves nothing.
-
 ## Safety
 
 Hooking system_server can cost a boot, so `post-fs-data.sh` writes `disable_hooks` after
