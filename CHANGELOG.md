@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.3
+
+Launcher icon carries the duck alongside the pin.
+
 ## 1.4.2
 
 Module updates are now offered in KernelSU, Magisk and APatch.
