@@ -103,13 +103,3 @@ Hooking system_server can cost a boot, so `post-fs-data.sh` writes `disable_hook
 three failed boots, `service.sh` does the same if `sys.boot_completed` never arrives within
 150 s, and hooks arm only five seconds after boot completes. Last resort is KernelSU safe
 mode: hold volume down while booting.
-
-## Verifying
-
-```
-adb push tools/verify.sh /data/local/tmp/verify.sh
-adb shell su -c 'sh /data/local/tmp/verify.sh'
-```
-
-It prints the module state, injects a fake position, asks the probe what it sees, and
-removes the fake provider again.
